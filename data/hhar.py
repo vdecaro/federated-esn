@@ -5,12 +5,10 @@ from collections import OrderedDict
 
 import pandas as pd
 import numpy as np
-
 import torch
-import torch.nn.functional as F
-import numpy as np
 
-HHAR_PATH = os.path.join(pathlib.Path(__file__).parent.absolute(), 'raw', 'HHAR')
+RAW_HHAR_PATH = os.path.join(pathlib.Path(__file__).parent.absolute(), 'raw', 'HHAR')
+HHAR_PATH = os.path.join(pathlib.Path(__file__).parent.absolute(), 'processed', 'HHAR')
 
 USERS = ["a", "b", "c", "d", "e", "f", "g", "h", "i"]
 PHONES = ['nexus4', 's3', 's3mini', 'samsungold']
@@ -28,35 +26,48 @@ class HHARDataset(torch.utils.data.Dataset):
         self.user = USERS[idx]
         self.seq_length = sequence_length
 
-        u_path = os.path.join(HHAR_PATH, 'users', f'{self.user}.pkl')
+        u_path = os.path.join(HHAR_PATH, f'{self.user}.pkl')
         if not os.path.exists(u_path):
             self.user_data = self.preprocess()
         else:
             self.user_data = pickle.load(open(u_path, 'rb'))
+            
+        self.seq_length = sequence_length
+        self.X, self.Y = self._to_sequence_chunks(self.seq_length)
 
+    @property
+    def seq_length(self):
+        return self.seq_length
+
+    @seq_length.setter
+    def seq_length(self, new_length):
+        print(f"Setting the length of the chunks in WESAD user {self.user}")
+        self._to_sequence_chunks(new_length)
+        self.seq_length = new_length
+    
     def __len__(self):
-        return sum([self.user_data[k]['size'] for k in self.user_data])
+        return len(self.X)
 
     def __getitem__(self, i):
+        return self.X[i], self.Y[i]
+    
+    def _to_sequence_chunks(self, length):
+        X, Y = [], []
         for k in self.user_data:
-            dev = self.user_data[k]
-            if dev['first_index'] <= i < dev['first_index'] + dev['first_index'] + dev['size']:
-                break
-        
-        i -= dev['first_index']
-        size = dev['size']
-        if i + self.seq_length >= size:
-            i = size - self.seq_length
-
-        return dev['X'][i:i+self.seq_length], dev['Y'][i:i+self.seq_length]
-
+            dev_x, dev_y = self.user_data[k]['X'], self.user_data[k]['Y']
+            dev_x, dev_y = torch.split(dev_x, length, dim=0), torch.split(dev_y, length, dim=0)
+            if dev_x[-1].shape[0] != length:
+                dev_x, dev_y = dev_x[:-1], dev_y[:-1]
+            X += dev_x
+            Y += dev_y
+        return X, Y
+    
     def preprocess(self):
-
         rdfs = {
-            'p_acc': pd.read_csv(os.path.join(HHAR_PATH, 'Phones_accelerometer.csv')).dropna(subset=['gt']),
-            'p_gyr': pd.read_csv(os.path.join(HHAR_PATH, 'Phones_gyroscope.csv')).dropna(subset=['gt']),
-            'w_acc': pd.read_csv(os.path.join(HHAR_PATH, 'Watch_accelerometer.csv')).dropna(subset=['gt']),
-            'w_gyr': pd.read_csv(os.path.join(HHAR_PATH, 'Watch_gyroscope.csv')).dropna(subset=['gt'])
+            'p_acc': pd.read_csv(os.path.join(RAW_HHAR_PATH, 'Phones_accelerometer.csv')).dropna(subset=['gt']),
+            'p_gyr': pd.read_csv(os.path.join(RAW_HHAR_PATH, 'Phones_gyroscope.csv')).dropna(subset=['gt']),
+            'w_acc': pd.read_csv(os.path.join(RAW_HHAR_PATH, 'Watch_accelerometer.csv')).dropna(subset=['gt']),
+            'w_gyr': pd.read_csv(os.path.join(RAW_HHAR_PATH, 'Watch_gyroscope.csv')).dropna(subset=['gt'])
         }
         u_dict = OrderedDict()
         curr_idx = 0
@@ -89,7 +100,7 @@ class HHARDataset(torch.utils.data.Dataset):
                 }
                 curr_idx += len(df_dev)
 
-        pickle.dump(u_dict, open(os.path.join(HHAR_PATH, 'users', f'{self.user}.pkl'), 'wb+'))
+        pickle.dump(u_dict, open(os.path.join(HHAR_PATH, f'{self.user}.pkl'), 'wb+'))
         
         return u_dict
     

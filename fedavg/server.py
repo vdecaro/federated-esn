@@ -3,6 +3,9 @@ import os
 import ray
 from ray import tune
 import torch
+import torch.nn.functional as F
+import numpy as np
+
 from .client import FedAvgClient
 from .esn.reservoir import Reservoir
 from .esn.readout import validate_readout
@@ -10,15 +13,16 @@ from .esn.readout import validate_readout
 class FedAvgServer(tune.Trainable):
 
     def setup(self, config):
-        self.clients = [FedAvgClient.remote() for _ in range(config['N_CLIENTS'])]
+        self.clients = [FedAvgClient.remote(i) for i in range(config['N_CLIENTS'])]
         self.reservoir, self.res_path = None, None
         self.readout, self.read_path = None, None
 
-        self.eval_X, self.eval_Y = None, None
+        self.eval_data = None
         self.l2_values = None
-        self.score_fn = None
+        self.score_fn = lambda Y, Y_pred: (torch.sum(Y == Y_pred)/Y.size(0)).item()
 
         self._build(config)
+        self._data_init(config)
     
     @torch.no_grad
     def step(self):
@@ -36,12 +40,17 @@ class FedAvgServer(tune.Trainable):
         client_a, client_b = zip(*clients_ab)
         a = torch.stack(client_a, dim=0).sum(0)
         b = torch.stack(client_b, dim=0).sum(0)
-        best_W, best_l2, best_score = validate_readout(a, b, self.eval_X, self.eval_Y, self.l2_values, self.score_fn)
+        eval_H = torch.cat([self.reservoir(eval_d.X) for eval_d in self.eval_data], 0), 
+        eval_Y = torch.cat([eval_d.Y for eval_d in self.eval_data], 0)
+        best_W, best_l2, best_score = validate_readout(a, b, eval_H, eval_Y, self.l2_values, self.score_fn)
         torch.save({'W': best_W, 'l2': best_l2}, self.read_path)
 
         client_eval = ray.get([c.local_eval.remote(self.read_path) for c in self.clients])
+        acc_c, acc_n_samples = zip(*client_eval)
+        train_acc = np.average(acc_c, weights=acc_n_samples)
+        
         return {
-            "train_score":  torch.mean(client_eval),
+            "train_score":  train_acc,
             "eval_score": best_score,
         }
 
@@ -60,6 +69,7 @@ class FedAvgServer(tune.Trainable):
         self.res_path = os.path.join(self.logdir, 'reservoir.pkl')
         torch.save(self.reservoir, self.res_path)
 
+        self.l2 = config['L2']
         self.readout = torch.nn.Linear(
             in_features=self.reservoir.hidden_size,
             out_features=self.config['N_CLASSES'],
@@ -68,7 +78,6 @@ class FedAvgServer(tune.Trainable):
         self.read_path = os.path.join(self.logdir, 'readout.pkl')
 
         _ = ray.get([c._build.remote(
-            i,
             self.logdir,
             config
         )   
@@ -91,5 +100,12 @@ class FedAvgServer(tune.Trainable):
     def reset_config(self, new_config):
         return self._build(new_config)
 
-    def data_init(self):
-        pass
+    def data_init(self, config):
+        if config['DATASET'] == 'WESAD':
+            from data.wesad import WESADDataset
+            data_constr = WESADDataset
+        if config['DATASET'] == 'HHAR':
+            from data.hhar import HHARDataset
+            data_constr = HHARDataset
+        
+        self.eval_data = [data_constr(u, config['SEQ_LENGTH']) for u in config['VALIDATION_USERS']]
