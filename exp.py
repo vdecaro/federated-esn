@@ -16,7 +16,7 @@ def run_exp(config, exp_dir):
                                     'train_score': 'TR-Score',
                                     'eval_score': 'VL-Score', 
                                 },
-                                parameter_columns={'MU': 'MU', 'SIGMA': 'SIGMA', 'HIDDEN_SIZE': 'HIDDEN_SIZE'},
+                                parameter_columns={'EPOCHS': 'EPOCHS', 'MU': 'MU', 'SIGMA': 'SIGMA', 'HIDDEN_SIZE': 'HIDDEN_SIZE'},
                                 infer_limit=3,
                                 metric='eval_score',
                                 mode='max')
@@ -28,13 +28,14 @@ def run_exp(config, exp_dir):
         local_dir=exp_dir,
         config=config,
         num_samples=50,
-        resources_per_trial={'cpu':1, 'gpu': 1},
+        resources_per_trial={'cpu':30, 'gpu': 1},
         keep_checkpoints_num=1,
         checkpoint_score_attr='eval_score',
         checkpoint_freq=1,
         max_failures=5,
         progress_reporter=reporter,
-        verbose=1
+        verbose=1,
+        reuse_actors=True
     )
     
 class TrialNoImprovementStopper(Stopper):

@@ -22,7 +22,7 @@ TOLERANCE = 5
 
 class HHARDataset(torch.utils.data.Dataset):
 
-    def __init__(self, idx: int, sequence_length: int) -> None:
+    def __init__(self, idx: int) -> None:
         super().__init__()
         self.user = USERS[idx]
 

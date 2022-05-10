@@ -86,9 +86,9 @@ class Reservoir(Module):
             reservoir_f = self._ip_state_comp
 
         if initial_state is None:
-            initial_state = torch.zeros(self.hidden_size).to(input)
+            initial_state = torch.zeros(self.hidden_size).to(self.W_hat)
         
-        embeddings = torch.stack([state for state in reservoir_f(input, initial_state, mask)], dim=0)
+        embeddings = torch.stack([state for state in reservoir_f(input.to(self.W_hat), initial_state, mask)], dim=0)
         
         return embeddings
 
@@ -123,8 +123,8 @@ class Reservoir(Module):
                 ip_b_grad = mask * ip_b_grad
                 ip_a_grad = mask * ip_a_grad
             if ip_b_grad.dim() > 1:
-                ip_b_grad = ip_b_grad.sum(0)
-                ip_a_grad = ip_a_grad.sum(0)
+                ip_b_grad = ip_b_grad.mean(0)
+                ip_a_grad = ip_a_grad.mean(0)
             if ip_b_grad.dim() > 1:
                 ip_b_grad = ip_b_grad.mean(0)
                 ip_a_grad = ip_a_grad.mean(0)
