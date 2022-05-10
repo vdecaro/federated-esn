@@ -1,10 +1,12 @@
 import os
-
 import ray
 from ray import tune
 import torch
 import torch.nn.functional as F
 import numpy as np
+
+from torch.utils.data import DataLoader
+from data.seq_loader import seq_collate_fn
 
 from .client import FedAvgClient
 from .esn.reservoir import Reservoir
@@ -16,11 +18,12 @@ class FedAvgServer(tune.Trainable):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print(f"Server running on {self.device}")
         self.n_clients = len(config['TRAIN_USERS'])
-        self.clients = [FedAvgClient.remote(i) for i in range(self.n_clients)]
+        self.clients = [FedAvgClient.options(num_cpus=1, num_gpus=0.99/(self.n_clients+1)).remote(i) for i in range(self.n_clients)]
         self.reservoir, self.res_path = None, None
         self.readout, self.read_path = None, None
 
         self.eval_data = None
+        self.loader = None
         self.l2_values = None
         self.score_fn = lambda Y, Y_pred: (torch.sum(Y == Y_pred)/Y.size(0)).item()
         
@@ -39,16 +42,27 @@ class FedAvgServer(tune.Trainable):
             self.reservoir.to(self.device)
             torch.save(self.reservoir, self.res_path)
             
-            clients_ab = ray.get([c.compute_ab.remote(self.res_path) for c in self.clients])
+            clients_ab = []
+            for c in self.clients:
+                clients_ab.append(ray.get(c.compute_ab.remote(self.res_path)))
 
             client_a, client_b = zip(*clients_ab)
-            a = torch.stack(client_a, dim=0).sum(0).to(self.device)
-            b = torch.stack(client_b, dim=0).sum(0).to(self.device)
-            eval_H = torch.cat([self.reservoir(eval_d.X) for eval_d in self.eval_data], 0).to(self.device), 
-            eval_Y = torch.cat([eval_d.Y for eval_d in self.eval_data], 0).to(self.device)
-            self.readout, best_l2, best_score = validate_readout(a, b, eval_H, eval_Y, self.l2_values, self.score_fn)
-            torch.save({'W': self.readout, 'l2': best_l2}, self.read_path)
+            a = sum(client_a).to(self.device)
+            b = sum(client_b).to(self.device)
+            print("Server is starting the global prediction...")
+            eval_data = []
+            for loader in self.loaders:
+                for eval_x, eval_y in loader:
+                    res_appl = self.reservoir(eval_x.to(self.device)).reshape((-1, self.reservoir.hidden_size))
+                    y_reshaped = eval_y.reshape((-1, eval_y.size(-1))).to(self.device)
+                    eval_data.append((res_appl, y_reshaped))
+            print("Server completed the global prediction.")
 
+            print("Server is starting the validation...")
+            self.readout, best_l2, best_score = validate_readout(a, b, eval_data, self.l2_values, self.score_fn)
+            torch.save({'W': self.readout, 'l2': best_l2}, self.read_path)
+            print("Server completed the validation.")
+            
             client_eval = ray.get([c.local_eval.remote(self.read_path) for c in self.clients])
             acc_c, acc_n_samples = zip(*client_eval)
             train_acc = np.average(acc_c, weights=acc_n_samples)
@@ -88,8 +102,10 @@ class FedAvgServer(tune.Trainable):
             os.path.join(self.logdir, 'clients', f'{i}.pkl') for i in range(self.n_clients)
         ]
         
+        self.loaders = []
         for data in self.eval_data:
             data.seq_length = config['SEQ_LENGTH']
+            self.loaders.append(DataLoader(data, batch_size=500, collate_fn=seq_collate_fn))
         
         return True
     

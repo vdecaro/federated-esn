@@ -20,6 +20,8 @@ def run_exp(config, exp_dir):
                                 infer_limit=3,
                                 metric='eval_score',
                                 mode='max')
+
+    n_clients = len(config['TRAIN_USERS'])
     
     return tune.run(
         FedAvgServer,
@@ -28,7 +30,7 @@ def run_exp(config, exp_dir):
         local_dir=exp_dir,
         config=config,
         num_samples=50,
-        resources_per_trial={'cpu':30, 'gpu': 1},
+        resources_per_trial=tune.PlacementGroupFactory([{"CPU": 1, "GPU": 1/(n_clients+1)} for _ in range(n_clients+1)]),
         keep_checkpoints_num=1,
         checkpoint_score_attr='eval_score',
         checkpoint_freq=1,

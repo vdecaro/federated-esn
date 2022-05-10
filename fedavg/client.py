@@ -22,8 +22,9 @@ class FedAvgClient:
 
         self.dataset = None
         self.loader = None
-        self.H_mat = None
+        self.train_pred_lab = []
         self.Y = None
+
 
         self.score_fn = lambda Y, Y_pred: (torch.sum(Y == Y_pred)/Y.size(0)).item()
         print(f"Client {i} created. Running on {self.device}.")
@@ -32,15 +33,13 @@ class FedAvgClient:
         reservoir = torch.load(reservoir_path, map_location=self.device)
         with torch.no_grad():
             opt = torch.optim.SGD(reservoir.parameters(), lr=self.lr)
-            print(f"Starting local IP for Client {self.idx}")
+            print(f"Client {self.idx} is starting local IP...")
             for _ in range(self.epochs):
-                prev_ip_a = reservoir.ip_a.data.clone()
                 for x, y in self.loader:
                     reservoir(x.to(self.device))
                     opt.step()
                     reservoir.zero_grad()
-                print(f"Diff for user {self.idx} == {((reservoir.ip_a.data - prev_ip_a)**2).mean()}") 
-            print(f"Local IP of Client {self.idx} completed.")
+            print(f"Client {self.idx} local IP completed.")
         torch.save(reservoir, self.c_path)
         
         return self.c_path
@@ -48,20 +47,32 @@ class FedAvgClient:
     def compute_ab(self, reservoir_path: str):
         with torch.no_grad():
             reservoir = torch.load(reservoir_path, map_location=self.device)
-            input = self.dataset.X.to(self.device)
-            to_size = len(self.dataset)*self.dataset.seq_length
-            self.H_mat = reservoir(input).reshape(to_size, -1)
-            A, B = compute_ridge_matrices(self.H_mat, self.dataset.Y.reshape(to_size, -1).to(self.H_mat))
+            A, B = None, None
+            print(f"Client {self.idx} is starting AB computation...")
+            for x, y in self.loader:
+                h = reservoir(x.to(self.device)).reshape((-1, reservoir.hidden_size))
+                y_reshaped = y.reshape((-1, y.size(-1))).to(h)
+                a_batch, b_batch = compute_ridge_matrices(h, y_reshaped)
+                A = A + a_batch if A is not None else a_batch
+                B = B + b_batch if B is not None else b_batch
+                self.train_pred_lab.append((h, y_reshaped))
+            print(f"Client {self.idx} completed AB computation.")
         return (A, B)
     
     def local_eval(self, readout_path = None):
         with torch.no_grad():
             readout = torch.load(readout_path, map_location=self.device)['W']
-            Y_pred = torch.argmax(F.linear(self.H_mat, readout), -1).flatten()
-            Y_true = torch.argmax(self.dataset.Y, dim=-1).flatten()
-            n_samples = Y_true.size(0)
-            acc = self.score_fn(Y_true, Y_pred)
-        return (acc, n_samples)
+            print(f"Client {self.idx} is starting local evaluation...")
+            acc, n_samples = 0, 0
+            for h, y in self.train_pred_lab:
+                Y_pred = torch.argmax(F.linear(h, readout), -1).flatten()
+                Y_true = torch.argmax(y, dim=-1).flatten()
+                curr_acc = self.score_fn(Y_true, Y_pred)
+                curr_n_samples = Y_true.size(0)
+                acc += curr_acc * curr_n_samples
+                n_samples += curr_n_samples
+            print(f"Client {self.idx} completed local evaluation.")
+        return (acc / n_samples, n_samples)
 
     def _build(self, exp_path, config):
         self.exp_path = exp_path

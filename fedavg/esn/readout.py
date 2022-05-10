@@ -124,18 +124,22 @@ def fit_and_validate_readout(train_X: Tensor,
 
 def validate_readout(A: Tensor, 
                      B: Tensor,
-                     eval_X: Tensor,
-                     eval_Y: Tensor,
+                     eval_data,
                      l2_values: List[float],
                      score_fn: Callable[[Tensor, Tensor], Dict]) -> Tuple[Tensor, Tensor]:
     
     best_W, best_l2, best_eval_score = None, None, None
     for l2 in l2_values:
         W = solve_ab_decomposition(A, B, l2)
-        Y_pred = torch.argmax(F.linear(eval_X, W), dim=-1).flatten()
-        score = score_fn(torch.argmax(eval_Y, dim=-1).flatten(), Y_pred)
+        acc, n_samples = 0, 0
+        for x, y in eval_data:
+            Y_pred = torch.argmax(F.linear(x, W), dim=-1).flatten()
+            curr_acc = score_fn(torch.argmax(y, dim=-1).flatten(), Y_pred)
+            curr_n_samples = Y_pred.size(0)
+            acc += curr_acc*curr_n_samples
+        acc = acc / n_samples
 
-        if best_W is None or score > best_eval_score:
-            best_W, best_l2, best_eval_score = W, l2, score
+        if best_W is None or acc > best_eval_score:
+            best_W, best_l2, best_eval_score = W, l2, acc
     
     return best_W, best_l2, best_eval_score
