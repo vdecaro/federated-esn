@@ -13,7 +13,7 @@ USERS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "13", "14", "15", "
 
 class WESADDataset(torch.utils.data.Dataset):
 
-    def __init__(self, idx: int, sequence_length: int) -> None:
+    def __init__(self, idx: int) -> None:
         super().__init__()
         self.user = USERS[idx]
 
@@ -22,26 +22,28 @@ class WESADDataset(torch.utils.data.Dataset):
             self.user_data = self.preprocess()
         else:
             self.user_data = pickle.load(open(u_path, 'rb'))
-        self.seq_length = sequence_length
-        self.X, self.Y = self._to_sequence_chunks(self.seq_length)
+
+        self._seq_length = None
+        self.X, self.Y = None, None
 
     @property
     def seq_length(self):
-        return self.seq_length
+        return self._seq_length
 
     @seq_length.setter
-    def seq_length(self, new_length):
-        print(f"Setting the length of the chunks in WESAD user {self.user}")
-        self._to_sequence_chunks(new_length)
-        self.seq_length = new_length
+    def seq_length(self, new_length: int):
+        if self._seq_length is None or new_length != self._seq_length:
+            print(f"Setting the length of the chunks in WESAD user {self.user} from {self._seq_length} to {new_length}")
+            self.X, self.Y = self._to_sequence_chunks(new_length)
+            self._seq_length = new_length
 
     def __len__(self):
         return len(self.X)
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: int):
         return self.X[i], self.Y[i]
     
-    def _to_sequence_chunks(self, length):
+    def _to_sequence_chunks(self, length: int):
         X, Y = torch.split(self.u_data['X'], length, dim=0), torch.split(self.u_data['Y'], length, dim=0)
         if X[-1].shape[0] != length:
             X, Y = X[:-1], Y[:-1]

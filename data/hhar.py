@@ -6,6 +6,7 @@ from collections import OrderedDict
 import pandas as pd
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 RAW_HHAR_PATH = os.path.join(pathlib.Path(__file__).parent.absolute(), 'raw', 'HHAR')
 HHAR_PATH = os.path.join(pathlib.Path(__file__).parent.absolute(), 'processed', 'HHAR')
@@ -24,34 +25,34 @@ class HHARDataset(torch.utils.data.Dataset):
     def __init__(self, idx: int, sequence_length: int) -> None:
         super().__init__()
         self.user = USERS[idx]
-        self.seq_length = sequence_length
 
         u_path = os.path.join(HHAR_PATH, f'{self.user}.pkl')
         if not os.path.exists(u_path):
             self.user_data = self.preprocess()
         else:
             self.user_data = pickle.load(open(u_path, 'rb'))
-            
-        self.seq_length = sequence_length
-        self.X, self.Y = self._to_sequence_chunks(self.seq_length)
+
+        self._seq_length = None
+        self.X, self.Y = None, None
 
     @property
     def seq_length(self):
-        return self.seq_length
+        return self._seq_length
 
     @seq_length.setter
-    def seq_length(self, new_length):
-        print(f"Setting the length of the chunks in WESAD user {self.user}")
-        self._to_sequence_chunks(new_length)
-        self.seq_length = new_length
+    def seq_length(self, new_length: int):
+        if self._seq_length is None or new_length != self._seq_length:
+            print(f"Setting the length of the chunks in WESAD user {self.user} from {self._seq_length} to {new_length}")
+            self.X, self.Y = self._to_sequence_chunks(new_length)
+            self._seq_length = new_length
     
     def __len__(self):
         return len(self.X)
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: int):
         return self.X[i], self.Y[i]
     
-    def _to_sequence_chunks(self, length):
+    def _to_sequence_chunks(self, length: int):
         X, Y = [], []
         for k in self.user_data:
             dev_x, dev_y = self.user_data[k]['X'], self.user_data[k]['Y']
@@ -94,7 +95,7 @@ class HHARDataset(torch.utils.data.Dataset):
                 
                 u_dict[device] = {
                     'X': torch.tensor(df_dev[values].values),
-                    'Y': torch.tensor(df_dev['gt'].values),
+                    'Y': F.one_hot(torch.tensor(df_dev['gt'].values), num_classes=6),
                     'first_index': curr_idx,
                     'size': len(df_dev)
                 }

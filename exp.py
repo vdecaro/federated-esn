@@ -1,0 +1,71 @@
+import os
+
+from collections import defaultdict
+from typing import Dict
+from ray import tune
+from ray.tune.stopper import Stopper
+
+from fedavg.server import FedAvgServer
+
+def run_exp(config, exp_dir):
+    early_stopping = TrialNoImprovementStopper(metric='eval_score', 
+                                               mode='max', 
+                                               patience_threshold=config['PATIENCE'])
+    reporter = tune.CLIReporter(metric_columns={
+                                    'training_iteration': '#Iter',
+                                    'train_score': 'TR-Score',
+                                    'eval_score': 'VL-Score', 
+                                },
+                                parameter_columns={'MU': 'MU', 'SIGMA': 'SIGMA', 'HIDDEN_SIZE': 'HIDDEN_SIZE'},
+                                infer_limit=3,
+                                metric='eval_score',
+                                mode='max')
+    
+    return tune.run(
+        FedAvgServer,
+        name=f"{config['DATASET']}_ms",
+        stop=early_stopping,
+        local_dir=exp_dir,
+        config=config,
+        num_samples=50,
+        resources_per_trial={'cpu':1, 'gpu': 1},
+        keep_checkpoints_num=1,
+        checkpoint_score_attr='eval_score',
+        checkpoint_freq=1,
+        max_failures=5,
+        progress_reporter=reporter,
+        verbose=1
+    )
+    
+class TrialNoImprovementStopper(Stopper):
+
+    def __init__(self,
+                 metric: str,
+                 mode: str = None,
+                 patience_threshold: int = 10):
+        self._metric = metric
+        self._mode = mode
+        self._patience_threshold = patience_threshold
+
+        self._trial_patience = defaultdict(lambda: 0)
+        if mode == 'min':
+            self._trial_best = defaultdict(lambda: float('inf')) 
+        else:
+            self._trial_best = defaultdict(lambda: -float('inf'))
+
+    def __call__(self, trial_id: str, result: Dict):
+        metric_result = result.get(self._metric)
+
+        better = (self._mode == 'min' and metric_result < self._trial_best[trial_id]) or \
+            (self._mode == 'max' and metric_result > self._trial_best[trial_id])
+
+        if better:
+            self._trial_best[trial_id] = metric_result
+            self._trial_patience[trial_id] = 0
+        else:
+            self._trial_patience[trial_id] += 1
+        
+        return self._trial_patience[trial_id] >= self._patience_threshold
+    
+    def stop_all(self):
+        return False

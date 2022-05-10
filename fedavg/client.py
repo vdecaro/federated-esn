@@ -14,6 +14,7 @@ class FedAvgClient(object):
 
     def __init__(self, i):
         self.idx = i
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.res_client_path = None
         self.exp_path = None
         self.epochs = None
@@ -28,13 +29,13 @@ class FedAvgClient(object):
     
     @torch.no_grad
     def local_ip_update(self, reservoir_path: str):
-        reservoir = torch.load(reservoir_path)
+        reservoir = torch.load(reservoir_path).to(self.device)
 
         opt = torch.optim.SGD(reservoir.parameters(), lr=self.lr)
         print(f"Starting local IP for Client {self.idx}")
         for _ in range(self.epochs):
             for batch in self.loader:
-                reservoir(batch)
+                reservoir(batch.to(self.device))
                 opt.step()
                 reservoir.zero_grad()   
         print(f"Local IP of Client {self.idx} completed.")
@@ -44,15 +45,15 @@ class FedAvgClient(object):
 
     @torch.no_grad
     def compute_ab(self, reservoir_path: str):
-        reservoir = torch.load(reservoir_path)
-        input = torch.stack(self.dataset.X, dim=1)
+        reservoir = torch.load(reservoir_path).to(self.device)
+        input = torch.stack(self.dataset.X, dim=1).to(self.device)
         self.H_mat = reservoir(input).reshape((len(self.dataset)*self.dataset.seq_length, reservoir.hidden_size))
 
         return compute_ridge_matrices(self.H_mat, self.dataset.Y)
     
     @torch.no_grad
     def local_eval(self, readout_path = None):
-        readout = torch.load(readout_path)['W']
+        readout = torch.load(readout_path)['W'].to(self.device)
         Y_pred = F.linear(self.H_mat, readout).flatten()
         Y_true = self.dataset.Y.flatten()
         n_samples = Y_true.size(0)
@@ -65,11 +66,11 @@ class FedAvgClient(object):
         if self.dataset is None:
             if config['DATASET'] == 'HHAR':
                 from data.hhar import HHARDataset
-                self.dataset = HHARDataset(self.idx, config['SEQ_LENGTH'])
+                self.dataset = HHARDataset(self.idx)
             if config['DATASET'] == 'WESAD':
                 from data.wesad import WESADDataset
-                self.dataset = WESADDataset(self.idx, config['SEQ_LENGTH'])
-        elif config['SEQ_LENGTH'] != self.dataset.seq_length:
-            self.dataset.seq_length = config['SEQ_LENGTH']
-            
+                self.dataset = WESADDataset(self.idx)
+        
+        self.dataset.seq_length = config['SEQ_LENGTH']
+
         self.loader = DataLoader(self.dataset, batch_size=config['BATCH_SIZE'], collate_fn=seq_collate_fn)
