@@ -45,7 +45,6 @@ def get_config(name, perc):
         }
     if name == 'HHAR':
         TEST_USERS = [3, 6]
-<<<<<<< HEAD
         TRAIN_USERS = {
             25: [0, 1],
             50: [0, 1, 2],
@@ -53,9 +52,6 @@ def get_config(name, perc):
             100: [0, 1, 2, 4, 7]
         }
         conf = {
-=======
-        config = {
->>>>>>> 9dedbf87c8e396f4a093219259010cf5a33e5e4b
             'DATASET': 'HHAR',
             'TRAIN_USERS': TRAIN_USERS[perc],
             'VALIDATION_USERS': [5, 8],
@@ -78,16 +74,9 @@ def get_config(name, perc):
     return config, TEST_USERS
 
 def main():
-<<<<<<< HEAD
     dataset, perc, gt = parser.dataset, parser.percentage, parser.gpu_trial
     config = get_config(dataset, perc)
     exp_dir = f"experiments/{config['DATASET']}_{perc}"
-=======
-    args = parser.parse_args()
-    dataset = args.dataset
-    config, test_users = get_config(dataset)
-    exp_dir = f"experiments/{config['DATASET']}"
->>>>>>> 9dedbf87c8e396f4a093219259010cf5a33e5e4b
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
 
