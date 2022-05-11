@@ -7,7 +7,7 @@ from ray.tune.stopper import Stopper
 
 from fedavg.server import FedAvgServer
 
-def run_exp(config, exp_dir):
+def run_exp(config, exp_dir, gt):
     early_stopping = TrialNoImprovementStopper(metric='eval_score', 
                                                mode='max', 
                                                patience_threshold=config['PATIENCE'])
@@ -22,7 +22,7 @@ def run_exp(config, exp_dir):
                                 mode='max')
 
     n_clients = len(config['TRAIN_USERS'])
-    
+    gpu_size = (1/gt)/(n_clients+1)
     return tune.run(
         FedAvgServer,
         name=f"{config['DATASET']}_ms",
@@ -30,7 +30,7 @@ def run_exp(config, exp_dir):
         local_dir=exp_dir,
         config=config,
         num_samples=25,
-        resources_per_trial=tune.PlacementGroupFactory([{"CPU": 1, "GPU": 1/(n_clients+1)} for _ in range(n_clients+1)]),
+        resources_per_trial=tune.PlacementGroupFactory([{"CPU": 1, "GPU": gpu_size} for _ in range(n_clients+1)]),
         keep_checkpoints_num=1,
         checkpoint_score_attr='eval_score',
         checkpoint_freq=1,
