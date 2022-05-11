@@ -16,7 +16,7 @@ def run_exp(config, exp_dir):
                                     'train_score': 'TR-Score',
                                     'eval_score': 'VL-Score', 
                                 },
-                                parameter_columns={'EPOCHS': 'EPOCHS', 'MU': 'MU', 'SIGMA': 'SIGMA', 'HIDDEN_SIZE': 'HIDDEN_SIZE'},
+                                parameter_columns={'EPOCHS': 'EPOCHS', 'SIGMA': 'SIGMA', 'NORMALIZE': 'Norm', 'RHO': 'RHO', 'LEAKAGE': 'alpha'},
                                 infer_limit=3,
                                 metric='eval_score',
                                 mode='max')

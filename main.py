@@ -26,13 +26,14 @@ def get_config(name):
             'RHO': tune.uniform(0.5, 0.99),
             'LEAKAGE': tune.quniform(0.1, 1, 0.1),
             'INPUT_SCALING': tune.uniform(0.5, 1),
-            'MU': tune.uniform(-0.5, 0.5),
-            'SIGMA': tune.uniform(0.1, 0.3),
-            'ETA': 1e-4,
+            'MU': 0,
+            'SIGMA': tune.uniform(0.005, 0.3),
+            'ETA': 1e-5,
             'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1],
             'BATCH_SIZE': 100,
             'EPOCHS': tune.randint(1, 15),
-            'PATIENCE': 5
+            'PATIENCE': 5,
+            'NORMALIZE': tune.choice([True, False])
         }
     if name == 'HHAR':
         TEST_USERS = [3, 6]

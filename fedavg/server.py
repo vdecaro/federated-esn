@@ -56,6 +56,7 @@ class FedAvgServer(tune.Trainable):
             b = sum(client_b).to(self.device)
             print("Server is starting the validation...")
             eval_data = []
+            self.reservoir.eval()
             for loader in self.loaders:
                 for eval_x, eval_y in loader:
                     res_appl = self.reservoir(eval_x.to(self.device)).reshape((-1, self.reservoir.hidden_size)).to('cpu')

@@ -20,12 +20,12 @@ class FedAvgClient:
         self.exp_path = None
         self.epochs = None
         self.lr = None
+        self.norm = None
 
         self.dataset = None
         self.loader = None
         self.train_pred_lab = []
         self.Y = None
-
 
         self.score_fn = lambda Y, Y_pred: (torch.sum(Y == Y_pred)/Y.size(0)).item()
         print(f"Client {i} created. Running on {self.device}.")
@@ -34,9 +34,13 @@ class FedAvgClient:
         reservoir = torch.load(reservoir_path, map_location=self.device)
         with torch.no_grad():
             opt = torch.optim.SGD(reservoir.parameters(), lr=self.lr)
+            reservoir.train()
             for _ in range(self.epochs):
                 for x, y in self.loader:
                     reservoir(x.to(self.device))
+                    if self.norm:
+                        reservoir.ip_a.grad = F.normalize(reservoir.ip_a.grad, dim=0)
+                        reservoir.ip_b.grad = F.normalize(reservoir.ip_b.grad, dim=0)
                     opt.step()
                     reservoir.zero_grad()
         torch.save(reservoir, self.c_path)
@@ -47,6 +51,7 @@ class FedAvgClient:
         with torch.no_grad():
             reservoir = torch.load(reservoir_path, map_location=self.device)
             A, B = None, None
+            reservoir.eval()
             for x, y in self.loader:
                 h = reservoir(x.to(self.device)).reshape((-1, reservoir.hidden_size))
                 y_reshaped = y.reshape((-1, y.size(-1))).to(h)
@@ -78,6 +83,7 @@ class FedAvgClient:
         self.c_path = os.path.join(self.exp_path, 'clients', f'{self.idx}.pkl')
         self.epochs = config['EPOCHS']
         self.lr = config['ETA']
+        self.norm = config['NORMALIZE']
         if self.dataset is None:
             if config['DATASET'] == 'HHAR':
                 from data.hhar import HHARDataset
