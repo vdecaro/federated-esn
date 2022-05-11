@@ -9,13 +9,22 @@ from exp import run_exp
 
 parser = argparse.ArgumentParser()
 parser.add_argument('dataset')
+parser.add_argument('--percentage', '-p', type=int, default=100)
+parser.add_argument('--gpu_trial', '-g', type=int, default=1)
 
-def get_config(name):
+
+def get_config(name, perc):
     if name == 'WESAD':
         TEST_USERS = [1, 4, 7]
+        TRAIN_USERS = {
+            25: [2, 5, 7],
+            50: [2, 5, 7, 8, 11],
+            75: [2, 5, 7, 8, 11, 13, 15],
+            100: [2, 5, 7, 8, 11, 13, 15, 16, 17]
+        }
         conf = {
             'DATASET': 'WESAD',
-            'TRAIN_USERS': [2, 5, 7, 8, 11, 13, 15, 16, 17],
+            'TRAIN_USERS': TRAIN_USERS[perc],
             'VALIDATION_USERS': [4, 10, 14],
             'SEQ_LENGTH': tune.choice([100, 200, 300]),
             'INPUT_SIZE': 8,
@@ -34,9 +43,15 @@ def get_config(name):
         }
     if name == 'HAR':
         TEST_USERS = [3, 6]
+        TRAIN_USERS = {
+            25: [0, 1],
+            50: [0, 1, 2],
+            75: [0, 1, 2, 4],
+            100: [0, 1, 2, 4, 7]
+        }
         conf = {
             'DATASET': 'HHAR',
-            'TRAIN_USERS': [0, 1, 2, 4, 7],
+            'TRAIN_USERS': TRAIN_USERS[perc],
             'VALIDATION_USERS': [5, 8],
             'SEQ_LENGTH': tune.choice([100, 200, 300]),
             'N_CLASSES': 6,
@@ -56,14 +71,14 @@ def get_config(name):
     return conf, TEST_USERS
 
 def main():
-    dataset = parser.dataset
-    config = get_config(dataset)
-    exp_dir = f"experiments/{config['DATASET']}"
+    dataset, perc, gt = parser.dataset, parser.percentage, parser.gpu_trial
+    config = get_config(dataset, perc)
+    exp_dir = f"experiments/{config['DATASET']}_{perc}"
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
 
     ray.init()
-    res = run_exp(config, exp_dir)
+    res = run_exp(config, exp_dir, gt)
     with open(os.path.join(exp_dir, 'dump_res.pkl'), 'wb+') as f:
         pickle.dump(res, f)
 
