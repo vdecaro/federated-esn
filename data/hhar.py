@@ -12,17 +12,17 @@ RAW_HHAR_PATH = os.path.join(pathlib.Path(__file__).parent.absolute(), 'raw', 'H
 HHAR_PATH = os.path.join(pathlib.Path(__file__).parent.absolute(), 'processed', 'HHAR')
 
 USERS = ["a", "b", "c", "d", "e", "f", "g", "h", "i"]
-PHONES = ['nexus4', 's3', 's3mini', 'samsungold']
-WATCHES = ['gear', 'lgwatch']
+PHONES = ['nexus4']#, 's3', 's3mini', 'samsungold']
+WATCHES = []#['gear', 'lgwatch']
 LABELS = {'stand': 0, 'sit': 1, 'walk': 2, 'stairsup': 3, 'stairsdown': 4, 'bike': 5}
 FREQ = {'nexus4': 200, 's3': 150, 's3mini': 100, 'samsungold': 50, 'gear': 100, 'lgwatch': 200}
-TARGET_FREQ = 32
+TARGET_FREQ = 50
 TOLERANCE = 5
 
 
 class HHARDataset(torch.utils.data.Dataset):
 
-    def __init__(self, idx: int, sequence_length: int) -> None:
+    def __init__(self, idx: int) -> None:
         super().__init__()
         self.user = USERS[idx]
 
@@ -67,8 +67,8 @@ class HHARDataset(torch.utils.data.Dataset):
         rdfs = {
             'p_acc': pd.read_csv(os.path.join(RAW_HHAR_PATH, 'Phones_accelerometer.csv')).dropna(subset=['gt']),
             'p_gyr': pd.read_csv(os.path.join(RAW_HHAR_PATH, 'Phones_gyroscope.csv')).dropna(subset=['gt']),
-            'w_acc': pd.read_csv(os.path.join(RAW_HHAR_PATH, 'Watch_accelerometer.csv')).dropna(subset=['gt']),
-            'w_gyr': pd.read_csv(os.path.join(RAW_HHAR_PATH, 'Watch_gyroscope.csv')).dropna(subset=['gt'])
+            #'w_acc': pd.read_csv(os.path.join(RAW_HHAR_PATH, 'Watch_accelerometer.csv')).dropna(subset=['gt']),
+            #'w_gyr': pd.read_csv(os.path.join(RAW_HHAR_PATH, 'Watch_gyroscope.csv')).dropna(subset=['gt'])
         }
         u_dict = OrderedDict()
         curr_idx = 0
@@ -86,8 +86,8 @@ class HHARDataset(torch.utils.data.Dataset):
             chosen_dev, perc = ('1', dev_1_perc) if (dev_1_perc <= dev_2_perc) else ('2', dev_2_perc)
             if perc < 0.1:
                 df_dev = dev[chosen_dev]
-                down_idx = np.around(np.arange(0, len(df_dev)-1, FREQ[device]/TARGET_FREQ))
-                df_dev = df_dev.iloc[down_idx]
+                #down_idx = np.around(np.arange(0, len(df_dev)-1, FREQ[device]/TARGET_FREQ))
+                #df_dev = df_dev.iloc[down_idx]
                 df_dev = df_dev.dropna()
                 values = ['x_acc', 'y_acc', 'z_acc', 'x_gyr', 'y_gyr', 'z_gyr']
                 df_dev[values] = (df_dev[values] - df_dev[values].mean()) / df_dev[values].std()

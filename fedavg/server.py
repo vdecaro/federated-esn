@@ -1,56 +1,81 @@
 import os
-
 import ray
 from ray import tune
 import torch
 import torch.nn.functional as F
 import numpy as np
 
+from torch.utils.data import DataLoader
+from data.seq_loader import seq_collate_fn
+
 from .client import FedAvgClient
 from .esn.reservoir import Reservoir
 from .esn.readout import validate_readout
+
+from .utils import empty_cache
 
 class FedAvgServer(tune.Trainable):
 
     def setup(self, config):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.clients = [FedAvgClient.remote(i) for i in range(len(config['TRAIN_USERS']))]
+        print(f"Server running on {self.device}")
+        self.n_clients = len(config['TRAIN_USERS'])
+        self.clients = [FedAvgClient.options(num_cpus=1, num_gpus=0.99/(self.n_clients+1)).remote(i) for i in range(self.n_clients)]
         self.reservoir, self.res_path = None, None
         self.readout, self.read_path = None, None
 
         self.eval_data = None
-        self.l2_values = None
+        self.loader = None
+        self.l2 = None
         self.score_fn = lambda Y, Y_pred: (torch.sum(Y == Y_pred)/Y.size(0)).item()
         
         self._data_init(config)
         self._build(config)
     
-    @torch.no_grad
     def step(self):
-        client_refs = ray.get([c.local_update.remote(self.res_path) for c in self.clients])
+        with torch.no_grad():
+            print("Clients are starting the local update...")
+            client_refs = ray.get([c.local_ip_update.remote(self.res_path) for c in self.clients])
+            print("Clients completed the local update.")
 
-        client_models = [torch.load(ref) for ref in client_refs]
-        ip_a_c = torch.stack([m.ip_a.data.clone() for m in client_models], dim=0)
-        ip_b_c = torch.stack([m.ip_b.data.clone() for m in client_models], dim=0)
-        self.reservoir.ip_a.copy_(torch.mean(ip_a_c, dim=0))
-        self.reservoir.ip_b.copy_(torch.mean(ip_b_c, dim=0))
-        self.reservoir.to(self.device)
-        torch.save(self.reservoir, self.res_path)
-        
-        clients_ab = ray.get([c.compute_ab.remote(self.res_path) for c in self.clients])
+            client_models = [torch.load(ref) for ref in client_refs]
+            empty_cache()
+            ip_a_c = torch.stack([m.ip_a.data.clone() for m in client_models], dim=0)
+            ip_b_c = torch.stack([m.ip_b.data.clone() for m in client_models], dim=0)
+            self.reservoir.ip_a.copy_(torch.mean(ip_a_c, dim=0))
+            self.reservoir.ip_b.copy_(torch.mean(ip_b_c, dim=0))
+            self.reservoir.to(self.device)
+            torch.save(self.reservoir, self.res_path)
+            
+            print("Clients are starting the AB computation...")
+            clients_ab = ray.get([c.compute_ab.remote(self.res_path) for c in self.clients])
+            print("Clients completed the AB computation.")
+            empty_cache()
+            client_a, client_b = zip(*clients_ab)
+            a = sum(client_a).to(self.device)
+            b = sum(client_b).to(self.device)
+            print("Server is starting the validation...")
+            eval_data = []
+            self.reservoir.eval()
+            for loader in self.loaders:
+                for eval_x, eval_y in loader:
+                    res_appl = self.reservoir(eval_x.to(self.device)).reshape((-1, self.reservoir.hidden_size)).to('cpu')
+                    y_reshaped = eval_y.reshape((-1, eval_y.size(-1)))
+                    eval_data.append((res_appl, y_reshaped))
+            empty_cache()
 
-        client_a, client_b = zip(*clients_ab)
-        a = torch.stack(client_a, dim=0).sum(0).to(self.device)
-        b = torch.stack(client_b, dim=0).sum(0).to(self.device)
-        eval_H = torch.cat([self.reservoir(eval_d.X) for eval_d in self.eval_data], 0).to(self.device), 
-        eval_Y = torch.cat([eval_d.Y for eval_d in self.eval_data], 0).to(self.device)
-        best_W, best_l2, best_score = validate_readout(a, b, eval_H, eval_Y, self.l2_values, self.score_fn)
-        torch.save({'W': best_W, 'l2': best_l2}, self.read_path)
+            self.readout, best_l2, best_score = validate_readout(a, b, eval_data, self.l2, self.score_fn)
+            torch.save({'W': self.readout, 'l2': best_l2}, self.read_path)
+            print("Server completed the validation.")
+            empty_cache()
 
-        client_eval = ray.get([c.local_eval.remote(self.read_path) for c in self.clients])
-        acc_c, acc_n_samples = zip(*client_eval)
-        train_acc = np.average(acc_c, weights=acc_n_samples)
-        
+            print("Clients are starting the local evaluation...")
+            client_eval = ray.get([c.local_eval.remote(self.read_path) for c in self.clients])
+            acc_c, acc_n_samples = zip(*client_eval)
+            train_acc = np.average(acc_c, weights=acc_n_samples)
+            empty_cache()
+            print("Clients completed the local evaluation.")
+            
         return {
             "train_score":  train_acc,
             "eval_score": best_score,
@@ -66,30 +91,30 @@ class FedAvgServer(tune.Trainable):
             input_scaling=config['INPUT_SCALING'],
             rho=config['RHO'],
             mu=config['MU'],
-            sigma=config['SIGMA']
+            sigma=config['SIGMA'],
+            mode='intrinsic_plasticity'
         )
         self.res_path = os.path.join(self.logdir, 'reservoir.pkl')
         torch.save(self.reservoir, self.res_path)
 
         self.l2 = config['L2']
-        self.readout = torch.nn.Linear(
-            in_features=self.reservoir.hidden_size,
-            out_features=self.config['N_CLASSES'],
-            bias=False
-        )
         self.read_path = os.path.join(self.logdir, 'readout.pkl')
 
+        os.makedirs(os.path.join(self.logdir, 'clients'))
         _ = ray.get([c._build.remote(
             self.logdir,
             config
         )   
-        for i, c in enumerate(self.clients)])
+        for _, c in enumerate(self.clients)])
+        
         self.client_refs = [
-            os.path.join(self.logdir, 'clients', f'{i}.pkl') for i in range(config['N_CLIENTS'])
+            os.path.join(self.logdir, 'clients', f'{i}.pkl') for i in range(self.n_clients)
         ]
         
+        self.loaders = []
         for data in self.eval_data:
             data.seq_length = config['SEQ_LENGTH']
+            self.loaders.append(DataLoader(data, batch_size=500, collate_fn=seq_collate_fn))
         
         return True
     
@@ -105,7 +130,7 @@ class FedAvgServer(tune.Trainable):
     def reset_config(self, new_config):
         return self._build(new_config)
 
-    def data_init(self, config):
+    def _data_init(self, config):
         if config['DATASET'] == 'WESAD':
             from data.wesad import WESADDataset
             data_constr = WESADDataset

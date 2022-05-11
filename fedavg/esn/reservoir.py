@@ -1,4 +1,5 @@
 from typing import Optional, Callable, Union
+from numpy import require
 
 import torch
 import torch.nn.functional as F
@@ -68,11 +69,11 @@ class Reservoir(Module):
         self.mode = mode
         if mode == 'intrinsic_plasticity':
             self.ip_a = Parameter(
-                init_params('uniform', scale=0.5)(hidden_size),
+                init_params('ones', scale=1)(hidden_size),
                 requires_grad=True
             )
             self.ip_b = Parameter(
-                init_params('uniform', scale=0.5)(hidden_size),
+                init_params('zeros', scale=0)(hidden_size),
                 requires_grad=True
             )
             self.mu = Parameter(torch.tensor(mu), requires_grad=False)
@@ -86,9 +87,9 @@ class Reservoir(Module):
             reservoir_f = self._ip_state_comp
 
         if initial_state is None:
-            initial_state = torch.zeros(self.hidden_size).to(input)
+            initial_state = torch.zeros(self.hidden_size).to(self.W_hat)
         
-        embeddings = torch.stack([state for state in reservoir_f(input, initial_state, mask)], dim=0)
+        embeddings = torch.stack([state for state in reservoir_f(input.to(self.W_hat), initial_state, mask)], dim=0)
         
         return embeddings
 
@@ -117,8 +118,8 @@ class Reservoir(Module):
 
         if self.training:
             in_signal, h = torch.stack(in_signal, dim=0), torch.stack(h, dim=0)
-            ip_b_grad = -(self.mu/self.v) + (h/self.v)*(2*self.v + 1 - h*(h + self.mu))
-            ip_a_grad = 1/self.ip_a + ip_b_grad*in_signal
+            ip_b_grad = -self.mu/self.v + (h/self.v)*(2*self.v + 1 - h**2 + self.mu*h)
+            ip_a_grad = -1/self.ip_a + ip_b_grad*in_signal
             if mask is not None:
                 ip_b_grad = mask * ip_b_grad
                 ip_a_grad = mask * ip_a_grad
@@ -129,8 +130,8 @@ class Reservoir(Module):
                 ip_b_grad = ip_b_grad.mean(0)
                 ip_a_grad = ip_a_grad.mean(0)
             
-            self.ip_b.grad = ip_b_grad
-            self.ip_a.grad = ip_a_grad
+            self.ip_b.grad = -ip_b_grad
+            self.ip_a.grad = -ip_a_grad
             
 
 

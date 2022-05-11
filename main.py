@@ -4,6 +4,7 @@ import os
 
 import ray
 from ray import tune
+from yaml import parse
 from exp import run_exp
 
 
@@ -26,23 +27,25 @@ def get_config(name, perc):
             'DATASET': 'WESAD',
             'TRAIN_USERS': TRAIN_USERS[perc],
             'VALIDATION_USERS': [4, 10, 14],
-            'SEQ_LENGTH': tune.choice([100, 200, 300]),
+            'SEQ_LENGTH': tune.choice([150, 350, 700]),
             'INPUT_SIZE': 8,
             'N_CLASSES': 4,
 
-            'HIDDEN_SIZE': tune.choice([100, 250]),
-            'RHO': tune.quniform(0.1, 0.99, 0.05),
-            'LEAKAGE': tune.quniform(0.1, 1.01, 0.1),
-            'INPUT_SCALING': tune.quniform(0.1, 1.01, 0.1),
-            'MU': tune.quniform(-0.5, 0.5, 0.1),
-            'SIGMA': tune.quniform(0.1, 0.5, 0.05),
-            'ETA': tune.qloguniform(1e-4, 1e-1, 5e-5),
+            'HIDDEN_SIZE': tune.choice([200, 250, 300]),
+            'RHO': tune.uniform(0.5, 0.99),
+            'LEAKAGE': tune.choice([0, 0.1, 0.5, 0.8, 0.9, 1]),
+            'INPUT_SCALING': tune.uniform(0.5, 1),
+            'MU': 0,
+            'SIGMA': tune.uniform(0.005, 0.15),
+            'ETA': 1e-2,
             'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1],
-            'BATCH_SIZE': 100,
-            'PATIENCE': 10
+            'BATCH_SIZE': 50,
+            'EPOCHS': tune.randint(1, 15),
+            'PATIENCE': 5
         }
-    if name == 'HAR':
+    if name == 'HHAR':
         TEST_USERS = [3, 6]
+<<<<<<< HEAD
         TRAIN_USERS = {
             25: [0, 1],
             50: [0, 1, 2],
@@ -50,30 +53,41 @@ def get_config(name, perc):
             100: [0, 1, 2, 4, 7]
         }
         conf = {
+=======
+        config = {
+>>>>>>> 9dedbf87c8e396f4a093219259010cf5a33e5e4b
             'DATASET': 'HHAR',
             'TRAIN_USERS': TRAIN_USERS[perc],
             'VALIDATION_USERS': [5, 8],
-            'SEQ_LENGTH': tune.choice([100, 200, 300]),
+            'SEQ_LENGTH': tune.choice([100, 150, 200, 400]),
             'N_CLASSES': 6,
             'INPUT_SIZE': 6,
 
-            'HIDDEN_SIZE': tune.choice([100, 500]),
-            'RHO': tune.quniform(0.1, 0.99, 0.05),
-            'LEAKAGE': tune.quniform(0.1, 1.01, 0.1),
-            'INPUT_SCALING': tune.quniform(0.1, 1.01, 0.1),
-            'MU': tune.quniform(-0.5, 0.5, 0.1),
-            'SIGMA': tune.quniform(0, 0.5, 0.5),
-            'ETA': tune.qloguniform(1e-4, 1e-1, 5e-5),
+            'HIDDEN_SIZE': tune.choice([100, 200, 300, 400, 500]),
+            'RHO': tune.uniform(0.5, 0.99),
+            'LEAKAGE': tune.choice([0, 0.1, 0.5, 0.8, 0.9, 1]),
+            'INPUT_SCALING': tune.uniform(0.5, 1),
+            'MU': 0,
+            'SIGMA': tune.uniform(0.005, 0.15),
+            'ETA': 1e-2,
             'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1],
-            'BATCH_SIZE': 100,
-            'PATIENCE': 10
+            'BATCH_SIZE': 50,
+            'EPOCHS': tune.choice([1, 3, 5, 10, 15]),
+            'PATIENCE': 5
         }
-    return conf, TEST_USERS
+    return config, TEST_USERS
 
 def main():
+<<<<<<< HEAD
     dataset, perc, gt = parser.dataset, parser.percentage, parser.gpu_trial
     config = get_config(dataset, perc)
     exp_dir = f"experiments/{config['DATASET']}_{perc}"
+=======
+    args = parser.parse_args()
+    dataset = args.dataset
+    config, test_users = get_config(dataset)
+    exp_dir = f"experiments/{config['DATASET']}"
+>>>>>>> 9dedbf87c8e396f4a093219259010cf5a33e5e4b
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
 
