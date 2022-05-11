@@ -20,7 +20,6 @@ class FedAvgClient:
         self.exp_path = None
         self.epochs = None
         self.lr = None
-        self.norm = None
 
         self.dataset = None
         self.loader = None
@@ -38,9 +37,8 @@ class FedAvgClient:
             for _ in range(self.epochs):
                 for x, y in self.loader:
                     reservoir(x.to(self.device))
-                    if self.norm:
-                        reservoir.ip_a.grad = F.normalize(reservoir.ip_a.grad, dim=0)
-                        reservoir.ip_b.grad = F.normalize(reservoir.ip_b.grad, dim=0)
+                    reservoir.ip_a.grad = F.normalize(reservoir.ip_a.grad, dim=0)
+                    reservoir.ip_b.grad = F.normalize(reservoir.ip_b.grad, dim=0)
                     opt.step()
                     reservoir.zero_grad()
         torch.save(reservoir, self.c_path)
@@ -83,7 +81,6 @@ class FedAvgClient:
         self.c_path = os.path.join(self.exp_path, 'clients', f'{self.idx}.pkl')
         self.epochs = config['EPOCHS']
         self.lr = config['ETA']
-        self.norm = config['NORMALIZE']
         if self.dataset is None:
             if config['DATASET'] == 'HHAR':
                 from data.hhar import HHARDataset

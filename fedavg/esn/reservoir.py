@@ -69,11 +69,11 @@ class Reservoir(Module):
         self.mode = mode
         if mode == 'intrinsic_plasticity':
             self.ip_a = Parameter(
-                init_params('uniform', scale=0.5)(hidden_size),
+                init_params('ones', scale=1)(hidden_size),
                 requires_grad=True
             )
             self.ip_b = Parameter(
-                init_params('uniform', scale=0.5)(hidden_size),
+                init_params('zeros', scale=0)(hidden_size),
                 requires_grad=True
             )
             self.mu = Parameter(torch.tensor(mu), requires_grad=False)

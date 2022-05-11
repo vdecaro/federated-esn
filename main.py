@@ -22,18 +22,17 @@ def get_config(name):
             'INPUT_SIZE': 8,
             'N_CLASSES': 4,
 
-            'HIDDEN_SIZE': tune.choice([250, 300]),
+            'HIDDEN_SIZE': tune.choice([200, 250, 300]),
             'RHO': tune.uniform(0.5, 0.99),
-            'LEAKAGE': tune.quniform(0.1, 1, 0.1),
+            'LEAKAGE': tune.choice([0, 0.1, 0.5, 0.8, 0.9, 1]),
             'INPUT_SCALING': tune.uniform(0.5, 1),
             'MU': 0,
-            'SIGMA': tune.uniform(0.005, 0.3),
-            'ETA': 1e-5,
+            'SIGMA': tune.uniform(0.005, 0.15),
+            'ETA': 1e-2,
             'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1],
             'BATCH_SIZE': 100,
             'EPOCHS': tune.randint(1, 15),
-            'PATIENCE': 5,
-            'NORMALIZE': tune.choice([True, False])
+            'PATIENCE': 5
         }
     if name == 'HHAR':
         TEST_USERS = [3, 6]
@@ -41,19 +40,19 @@ def get_config(name):
             'DATASET': 'HHAR',
             'TRAIN_USERS': [0, 1, 2, 4, 7],
             'VALIDATION_USERS': [5, 8],
-            'SEQ_LENGTH': tune.choice([100, 200, 300]),
+            'SEQ_LENGTH': tune.choice([50, 100, 150]),
             'N_CLASSES': 6,
             'INPUT_SIZE': 6,
 
-            'HIDDEN_SIZE': tune.choice([100, 500]),
-            'RHO': tune.quniform(0.1, 1, 0.05),
-            'LEAKAGE': tune.quniform(0.1, 1, 0.1),
-            'INPUT_SCALING': tune.quniform(0.1, 1, 0.05),
-            'MU': tune.quniform(-0.5, 0.5, 0.1),
-            'SIGMA': tune.quniform(0, 0.5, 0.05),
-            'ETA': 1e-4,
+            'HIDDEN_SIZE': tune.choice([100, 200, 300, 400, 500]),
+            'RHO': tune.uniform(0.5, 0.99),
+            'LEAKAGE': tune.choice([0, 0.1, 0.5, 0.8, 0.9, 1]),
+            'INPUT_SCALING': tune.uniform(0.5, 1),
+            'MU': 0,
+            'SIGMA': tune.uniform(0.005, 0.15),
+            'ETA': 1e-2,
             'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1],
-            'BATCH_SIZE': 100,
+            'BATCH_SIZE': 50,
             'EPOCHS': tune.randint(1, 15),
             'PATIENCE': 5
         }
