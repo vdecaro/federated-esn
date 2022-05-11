@@ -3,4 +3,4 @@ RUN pip install -U "ray[tune]"
 WORKDIR /app
 COPY . /app
 
-ENTRYPOINT [ "python" "main.py" ]
+ENTRYPOINT [ "python", "main.py" ]
