@@ -12,6 +12,8 @@ from .client import FedAvgClient
 from .esn.reservoir import Reservoir
 from .esn.readout import validate_readout
 
+from .utils import empty_cache
+
 class FedAvgServer(tune.Trainable):
 
     def setup(self, config):
@@ -24,7 +26,7 @@ class FedAvgServer(tune.Trainable):
 
         self.eval_data = None
         self.loader = None
-        self.l2_values = None
+        self.l2 = None
         self.score_fn = lambda Y, Y_pred: (torch.sum(Y == Y_pred)/Y.size(0)).item()
         
         self._data_init(config)
@@ -32,9 +34,12 @@ class FedAvgServer(tune.Trainable):
     
     def step(self):
         with torch.no_grad():
+            print("Clients are starting the local update...")
             client_refs = ray.get([c.local_ip_update.remote(self.res_path) for c in self.clients])
+            print("Clients completed the local update.")
 
             client_models = [torch.load(ref) for ref in client_refs]
+            empty_cache()
             ip_a_c = torch.stack([m.ip_a.data.clone() for m in client_models], dim=0)
             ip_b_c = torch.stack([m.ip_b.data.clone() for m in client_models], dim=0)
             self.reservoir.ip_a.copy_(torch.mean(ip_a_c, dim=0))
@@ -42,30 +47,33 @@ class FedAvgServer(tune.Trainable):
             self.reservoir.to(self.device)
             torch.save(self.reservoir, self.res_path)
             
-            clients_ab = []
-            for c in self.clients:
-                clients_ab.append(ray.get(c.compute_ab.remote(self.res_path)))
-
+            print("Clients are starting the AB computation...")
+            clients_ab = ray.get([c.compute_ab.remote(self.res_path) for c in self.clients])
+            print("Clients completed the AB computation.")
+            empty_cache()
             client_a, client_b = zip(*clients_ab)
             a = sum(client_a).to(self.device)
             b = sum(client_b).to(self.device)
-            print("Server is starting the global prediction...")
+            print("Server is starting the validation...")
             eval_data = []
             for loader in self.loaders:
                 for eval_x, eval_y in loader:
-                    res_appl = self.reservoir(eval_x.to(self.device)).reshape((-1, self.reservoir.hidden_size))
-                    y_reshaped = eval_y.reshape((-1, eval_y.size(-1))).to(self.device)
+                    res_appl = self.reservoir(eval_x.to(self.device)).reshape((-1, self.reservoir.hidden_size)).to('cpu')
+                    y_reshaped = eval_y.reshape((-1, eval_y.size(-1)))
                     eval_data.append((res_appl, y_reshaped))
-            print("Server completed the global prediction.")
+            empty_cache()
 
-            print("Server is starting the validation...")
-            self.readout, best_l2, best_score = validate_readout(a, b, eval_data, self.l2_values, self.score_fn)
+            self.readout, best_l2, best_score = validate_readout(a, b, eval_data, self.l2, self.score_fn)
             torch.save({'W': self.readout, 'l2': best_l2}, self.read_path)
             print("Server completed the validation.")
-            
+            empty_cache()
+
+            print("Clients are starting the local evaluation...")
             client_eval = ray.get([c.local_eval.remote(self.read_path) for c in self.clients])
             acc_c, acc_n_samples = zip(*client_eval)
             train_acc = np.average(acc_c, weights=acc_n_samples)
+            empty_cache()
+            print("Clients completed the local evaluation.")
             
         return {
             "train_score":  train_acc,

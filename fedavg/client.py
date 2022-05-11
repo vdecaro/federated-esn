@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from data.seq_loader import seq_collate_fn
 
 from .esn.readout import compute_ridge_matrices
+from .utils import empty_cache
 
 @ray.remote
 class FedAvgClient:
@@ -33,45 +34,43 @@ class FedAvgClient:
         reservoir = torch.load(reservoir_path, map_location=self.device)
         with torch.no_grad():
             opt = torch.optim.SGD(reservoir.parameters(), lr=self.lr)
-            print(f"Client {self.idx} is starting local IP...")
             for _ in range(self.epochs):
                 for x, y in self.loader:
                     reservoir(x.to(self.device))
                     opt.step()
                     reservoir.zero_grad()
-            print(f"Client {self.idx} local IP completed.")
         torch.save(reservoir, self.c_path)
-        
+        empty_cache()
         return self.c_path
 
     def compute_ab(self, reservoir_path: str):
         with torch.no_grad():
             reservoir = torch.load(reservoir_path, map_location=self.device)
             A, B = None, None
-            print(f"Client {self.idx} is starting AB computation...")
             for x, y in self.loader:
                 h = reservoir(x.to(self.device)).reshape((-1, reservoir.hidden_size))
                 y_reshaped = y.reshape((-1, y.size(-1))).to(h)
                 a_batch, b_batch = compute_ridge_matrices(h, y_reshaped)
                 A = A + a_batch if A is not None else a_batch
                 B = B + b_batch if B is not None else b_batch
-                self.train_pred_lab.append((h, y_reshaped))
-            print(f"Client {self.idx} completed AB computation.")
+                self.train_pred_lab.append((h.to('cpu'), y_reshaped.to('cpu')))
+        empty_cache()
         return (A, B)
     
     def local_eval(self, readout_path = None):
         with torch.no_grad():
             readout = torch.load(readout_path, map_location=self.device)['W']
-            print(f"Client {self.idx} is starting local evaluation...")
             acc, n_samples = 0, 0
             for h, y in self.train_pred_lab:
-                Y_pred = torch.argmax(F.linear(h, readout), -1).flatten()
+                Y_pred = torch.argmax(F.linear(h.to(self.device), readout), -1).flatten().to('cpu')
                 Y_true = torch.argmax(y, dim=-1).flatten()
                 curr_acc = self.score_fn(Y_true, Y_pred)
                 curr_n_samples = Y_true.size(0)
                 acc += curr_acc * curr_n_samples
                 n_samples += curr_n_samples
-            print(f"Client {self.idx} completed local evaluation.")
+            del self.train_pred_lab
+            self.train_pred_lab = []
+        empty_cache()
         return (acc / n_samples, n_samples)
 
     def _build(self, exp_path, config):
