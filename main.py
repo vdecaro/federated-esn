@@ -23,7 +23,7 @@ def get_config(name, perc):
             75: [2, 5, 7, 8, 11, 13, 15],
             100: [2, 5, 7, 8, 11, 13, 15, 16, 17]
         }
-        conf = {
+        config = {
             'DATASET': 'WESAD',
             'TRAIN_USERS': TRAIN_USERS[perc],
             'VALIDATION_USERS': [4, 10, 14],
@@ -51,7 +51,7 @@ def get_config(name, perc):
             75: [0, 1, 2, 4],
             100: [0, 1, 2, 4, 7]
         }
-        conf = {
+        config = {
             'DATASET': 'HHAR',
             'TRAIN_USERS': TRAIN_USERS[perc],
             'VALIDATION_USERS': [5, 8],
