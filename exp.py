@@ -29,7 +29,7 @@ def run_exp(config, exp_dir):
         stop=early_stopping,
         local_dir=exp_dir,
         config=config,
-        num_samples=50,
+        num_samples=25,
         resources_per_trial=tune.PlacementGroupFactory([{"CPU": 1, "GPU": 1/(n_clients+1)} for _ in range(n_clients+1)]),
         keep_checkpoints_num=1,
         checkpoint_score_attr='eval_score',
