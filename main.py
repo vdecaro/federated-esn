@@ -76,7 +76,7 @@ def get_config(name, perc):
 def main():
     args = parser.parse_args()
     dataset, perc, gt = args.dataset, args.percentage, args.gpu_trial
-    config = get_config(dataset, perc)
+    config, test_users = get_config(dataset, perc)
     exp_dir = f"experiments/{config['DATASET']}_{perc}"
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)

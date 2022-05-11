@@ -23,6 +23,7 @@ def run_exp(config, exp_dir, gt):
 
     n_clients = len(config['TRAIN_USERS'])
     gpu_size = (1/gt)/(n_clients+1)
+    config['GPU_SIZE'] = gpu_size
     return tune.run(
         FedAvgServer,
         name=f"{config['DATASET']}_ms",
