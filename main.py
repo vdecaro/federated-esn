@@ -18,7 +18,7 @@ def get_config(name):
             'DATASET': 'WESAD',
             'TRAIN_USERS': [2, 5, 7, 8, 11, 13, 15, 16, 17],
             'VALIDATION_USERS': [4, 10, 14],
-            'SEQ_LENGTH': tune.choice([100, 200, 300]),
+            'SEQ_LENGTH': tune.choice([150, 350, 700]),
             'INPUT_SIZE': 8,
             'N_CLASSES': 4,
 
@@ -30,7 +30,7 @@ def get_config(name):
             'SIGMA': tune.uniform(0.005, 0.15),
             'ETA': 1e-2,
             'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1],
-            'BATCH_SIZE': 100,
+            'BATCH_SIZE': 50,
             'EPOCHS': tune.randint(1, 15),
             'PATIENCE': 5
         }
@@ -40,7 +40,7 @@ def get_config(name):
             'DATASET': 'HHAR',
             'TRAIN_USERS': [0, 1, 2, 4, 7],
             'VALIDATION_USERS': [5, 8],
-            'SEQ_LENGTH': tune.choice([50, 100, 150]),
+            'SEQ_LENGTH': tune.choice([100, 150, 200, 400]),
             'N_CLASSES': 6,
             'INPUT_SIZE': 6,
 
@@ -53,7 +53,7 @@ def get_config(name):
             'ETA': 1e-2,
             'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1],
             'BATCH_SIZE': 50,
-            'EPOCHS': tune.randint(1, 15),
+            'EPOCHS': tune.choice([1, 3, 5, 10, 15]),
             'PATIENCE': 5
         }
     return config, TEST_USERS
