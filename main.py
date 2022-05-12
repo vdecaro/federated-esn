@@ -33,13 +33,13 @@ def get_config(name, perc):
 
             'HIDDEN_SIZE': tune.choice([200, 250, 300]),
             'RHO': tune.uniform(0.5, 0.99),
-            'LEAKAGE': tune.choice([0, 0.1, 0.5, 0.8, 0.9, 1]),
+            'LEAKAGE': tune.choice([0.5, 0.7, 0.9, 1]),
             'INPUT_SCALING': tune.uniform(0.5, 1),
             'MU': 0,
             'SIGMA': tune.uniform(0.005, 0.15),
             'ETA': 1e-2,
             'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1],
-            'BATCH_SIZE': 50,
+            'BATCH_SIZE': 100,
             'EPOCHS': tune.randint(1, 15),
             'PATIENCE': 5
         }
@@ -61,14 +61,14 @@ def get_config(name, perc):
 
             'HIDDEN_SIZE': tune.choice([100, 200, 300, 400, 500]),
             'RHO': tune.uniform(0.5, 0.99),
-            'LEAKAGE': tune.choice([0, 0.1, 0.5, 0.8, 0.9, 1]),
+            'LEAKAGE': tune.choice([0.5, 0.7, 0.9, 1]),
             'INPUT_SCALING': tune.uniform(0.5, 1),
             'MU': 0,
             'SIGMA': tune.uniform(0.005, 0.15),
             'ETA': 1e-2,
             'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1],
             'BATCH_SIZE': 50,
-            'EPOCHS': tune.choice([1, 3, 5, 10, 15]),
+            'EPOCHS': tune.choice([1, 3, 5]),
             'PATIENCE': 5
         }
     return config, TEST_USERS
