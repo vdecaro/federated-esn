@@ -10,6 +10,7 @@ from exp import run_exp
 
 parser = argparse.ArgumentParser()
 parser.add_argument('dataset')
+parser.add_argument('--mode', '-m', type=str)
 parser.add_argument('--percentage', '-p', type=int, default=100)
 parser.add_argument('--gpu_trial', '-g', type=int, default=1)
 
@@ -33,7 +34,7 @@ def get_config(name, perc):
 
             'HIDDEN_SIZE': tune.choice([200, 250, 300]),
             'RHO': tune.uniform(0.3, 0.99),
-            'LEAKAGE': tune.choice([0.1, 0.3, 0.5, 0.7, 0.9, 1]),
+            'LEAKAGE': tune.choice([0.1, 0.3, 0.5]),
             'INPUT_SCALING': tune.uniform(0.5, 1),
             'MU': 0,
             'SIGMA': tune.uniform(0.005, 0.15),
@@ -61,7 +62,7 @@ def get_config(name, perc):
 
             'HIDDEN_SIZE': tune.choice([100, 200, 300, 400, 500]),
             'RHO': tune.uniform(0.3, 0.99),
-            'LEAKAGE': tune.choice([0.1, 0.3, 0.5, 0.7, 0.9, 1]),
+            'LEAKAGE': tune.choice([0.1, 0.3, 0.5]),
             'INPUT_SCALING': tune.uniform(0.5, 1),
             'MU': 0,
             'SIGMA': tune.uniform(0.005, 0.15),
