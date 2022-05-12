@@ -8,9 +8,13 @@ from ray.tune.stopper import Stopper
 from fedavg.server import FedAvgServer
 
 def run_exp(config, exp_dir, gt):
-    early_stopping = TrialNoImprovementStopper(metric='eval_score', 
-                                               mode='max', 
-                                               patience_threshold=config['PATIENCE'])
+    if config['MODE'] == 'intrinsic_plasticity':
+        stopper = TrialNoImprovementStopper(metric='eval_score', 
+                                            mode='max', 
+                                            patience_threshold=config['PATIENCE'])
+    if config['MODE'] == 'vanilla':
+        stopper = lambda trial_id, result: True
+    
     reporter = tune.CLIReporter(metric_columns={
                                     'training_iteration': '#Iter',
                                     'train_score': 'TR-Score',
@@ -27,7 +31,7 @@ def run_exp(config, exp_dir, gt):
     return tune.run(
         FedAvgServer,
         name=f"{config['DATASET']}_ms",
-        stop=early_stopping,
+        stop=stopper,
         local_dir=exp_dir,
         config=config,
         num_samples=30,

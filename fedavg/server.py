@@ -23,6 +23,7 @@ class FedAvgServer(tune.Trainable):
         self.clients = [FedAvgClient.options(num_cpus=1, num_gpus=config['GPU_SIZE']).remote(i) for i in range(self.n_clients)]
         self.reservoir, self.res_path = None, None
         self.readout, self.read_path = None, None
+        self.mode = None
 
         self.eval_data = None
         self.loader = None
@@ -34,16 +35,17 @@ class FedAvgServer(tune.Trainable):
     
     def step(self):
         with torch.no_grad():
-            print("Clients are starting the local update...")
-            client_refs = ray.get([c.local_ip_update.remote(self.res_path) for c in self.clients])
-            print("Clients completed the local update.")
+            if self.mode == 'intrinsic_plasticity':
+                print("Clients are starting the local update...")
+                client_refs = ray.get([c.local_ip_update.remote(self.res_path) for c in self.clients])
+                print("Clients completed the local update.")
 
-            client_models = [torch.load(ref) for ref in client_refs]
-            empty_cache()
-            ip_a_c = torch.stack([m.ip_a.data.clone() for m in client_models], dim=0)
-            ip_b_c = torch.stack([m.ip_b.data.clone() for m in client_models], dim=0)
-            self.reservoir.ip_a.copy_(torch.mean(ip_a_c, dim=0))
-            self.reservoir.ip_b.copy_(torch.mean(ip_b_c, dim=0))
+                client_models = [torch.load(ref) for ref in client_refs]
+                empty_cache()
+                ip_a_c = torch.stack([m.ip_a.data.clone() for m in client_models], dim=0)
+                ip_b_c = torch.stack([m.ip_b.data.clone() for m in client_models], dim=0)
+                self.reservoir.ip_a.copy_(torch.mean(ip_a_c, dim=0))
+                self.reservoir.ip_b.copy_(torch.mean(ip_b_c, dim=0))
             self.reservoir.to(self.device)
             torch.save(self.reservoir, self.res_path)
             
@@ -92,13 +94,14 @@ class FedAvgServer(tune.Trainable):
             rho=config['RHO'],
             mu=config['MU'],
             sigma=config['SIGMA'],
-            mode='intrinsic_plasticity'
+            mode=config['MODE']
         )
         self.res_path = os.path.join(self.logdir, 'reservoir.pkl')
         torch.save(self.reservoir, self.res_path)
 
         self.l2 = config['L2']
         self.read_path = os.path.join(self.logdir, 'readout.pkl')
+        self.mode = config['MODE']
 
         os.makedirs(os.path.join(self.logdir, 'clients'))
         _ = ray.get([c._build.remote(

@@ -15,7 +15,7 @@ parser.add_argument('--percentage', '-p', type=int, default=100)
 parser.add_argument('--gpu_trial', '-g', type=int, default=1)
 
 
-def get_config(name, perc):
+def get_config(name, perc, mode):
     if name == 'WESAD':
         TEST_USERS = [1, 4, 7]
         TRAIN_USERS = {
@@ -42,7 +42,8 @@ def get_config(name, perc):
             'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.5, 1],
             'BATCH_SIZE': 100,
             'EPOCHS': tune.choice([1, 3, 5]),
-            'PATIENCE': 5
+            'PATIENCE': 5,
+            'MODE': mode
         }
     if name == 'HHAR':
         TEST_USERS = [3, 6]
@@ -70,22 +71,21 @@ def get_config(name, perc):
             'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.5, 1],
             'BATCH_SIZE': 50,
             'EPOCHS': tune.choice([1, 3, 5]),
-            'PATIENCE': 5
+            'PATIENCE': 5,
+            'MODE': mode
         }
     return config, TEST_USERS
 
 def main():
     args = parser.parse_args()
-    dataset, perc, gt = args.dataset, args.percentage, args.gpu_trial
+    dataset, perc, gt, mode = args.dataset, args.percentage, args.gpu_trial, args.mode
     config, test_users = get_config(dataset, perc)
-    exp_dir = f"experiments/{config['DATASET']}_{perc}"
+    exp_dir = f"experiments/{config['DATASET']}_{perc}_{config['MODE']}"
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
 
     ray.init()
     res = run_exp(config, exp_dir, gt)
-    with open(os.path.join(exp_dir, 'dump_res.pkl'), 'wb+') as f:
-        pickle.dump(res, f)
 
 
 if __name__ == '__main__':
