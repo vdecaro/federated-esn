@@ -40,7 +40,7 @@ def get_config(name, perc):
             'ETA': 1e-2,
             'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1],
             'BATCH_SIZE': 100,
-            'EPOCHS': tune.randint(1, 15),
+            'EPOCHS': tune.choice([1, 3, 5]),
             'PATIENCE': 5
         }
     if name == 'HHAR':
