@@ -38,7 +38,7 @@ def get_config(name, perc):
             'MU': 0,
             'SIGMA': tune.uniform(0.005, 0.15),
             'ETA': 1e-2,
-            'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1],
+            'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.5, 1],
             'BATCH_SIZE': 100,
             'EPOCHS': tune.choice([1, 3, 5]),
             'PATIENCE': 5
@@ -66,7 +66,7 @@ def get_config(name, perc):
             'MU': 0,
             'SIGMA': tune.uniform(0.005, 0.15),
             'ETA': 1e-2,
-            'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1],
+            'L2': [0.00001, 0.0001, 0.001, 0.01, 0.1, 0.5, 1],
             'BATCH_SIZE': 50,
             'EPOCHS': tune.choice([1, 3, 5]),
             'PATIENCE': 5
