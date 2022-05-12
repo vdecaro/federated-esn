@@ -91,5 +91,5 @@ class FedAvgClient:
         
         self.dataset.seq_length = config['SEQ_LENGTH']
 
-        self.loader = DataLoader(self.dataset, batch_size=config['BATCH_SIZE'], collate_fn=seq_collate_fn)
+        self.loader = DataLoader(self.dataset, batch_size=config['BATCH_SIZE'], shuffle=True, collate_fn=seq_collate_fn)
         return True
