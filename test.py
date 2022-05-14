@@ -51,14 +51,17 @@ def main():
     if dataset == 'HHAR':
         from data.hhar import HHARDataset
         data_constr = HHARDataset
+
+    test_exp = tune.ExperimentAnalysis(test_dir, default_metric='eval_score', default_mode='max')
+    config = test_exp.get_best_config()
     test_data = [data_constr(u) for u in USERS[dataset]['TEST']]
+    for d in test_data:
+        d.seq_length = config['SEQ_LENGTH']
     test_loaders = [DataLoader(
             d, 
             batch_size=500,
             collate_fn=seq_collate_fn
     ) for d in test_data]
-
-    test_exp = tune.ExperimentAnalysis(test_dir, default_metric='eval_score', default_mode='max')
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     acc_fn = lambda Y, Y_pred: (torch.sum(Y == Y_pred)/Y.size(0)).item()
 
