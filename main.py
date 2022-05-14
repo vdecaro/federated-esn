@@ -145,8 +145,8 @@ def main():
     args = parser.parse_args()
     dataset, perc, gt, mode, test = args.dataset, args.percentage, args.gpu_trial, args.mode, args.test
     config = get_config(dataset, perc, mode, test)
-    if test and dataset == 'HHAR':
-        config['SEQ_LENGTH'] = 400
+    if test:
+        config['SEQ_LENGTH'] = 400 if dataset == 'HHAR' else 700
     exp_dir = f"experiments/{config['DATASET']}_{perc}_{mode}"
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
