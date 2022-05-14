@@ -17,23 +17,39 @@ parser.add_argument('dataset')
 parser.add_argument('--mode', '-m', type=str)
 parser.add_argument('--percentage', '-p', type=int, default=100)
 parser.add_argument('--gpu_trial', '-g', type=int, default=1)
-parser.add_argument('--test', '-t', default='ms')
+parser.add_argument('--test', '-t', action='store_true', default='ms')
 
+USERS = {
+    'WESAD': {
+        'TRAIN': {
+            25: [2, 5, 7],
+            50: [2, 5, 7, 8, 11],
+            75: [2, 5, 7, 8, 11, 13, 15],
+            100: [2, 5, 7, 8, 11, 13, 15, 16, 17]
+        }, 
+        'VALIDATION': [3, 10, 14],
+        'TEST': [4, 6, 9]
+    },
+    'HHAR':{
+        'TRAIN': {
+            25: [0, 1],
+            50: [0, 1, 2],
+            75: [0, 1, 2, 4],
+            100: [0, 1, 2, 4, 7]
+        },
+        'VALIDATION': [5, 8],
+        'TEST': [3, 6]
+    }
+}
 
 def get_config(name, perc, mode, test):
     if not test:
+        d_users = USERS[name]
         if name == 'WESAD':
-            TRAIN_USERS = {
-                25: [2, 5, 7],
-                50: [2, 5, 7, 8, 11],
-                75: [2, 5, 7, 8, 11, 13, 15],
-                100: [2, 5, 7, 8, 11, 13, 15, 16, 17]
-            }
-            TEST_USERS = [4, 6, 9]
             config = {
                 'DATASET': 'WESAD',
-                'TRAIN_USERS': TRAIN_USERS[perc],
-                'VALIDATION_USERS': [3, 10, 14],
+                'TRAIN_USERS': d_users['TRAIN'][perc],
+                'VALIDATION_USERS': d_users['VALIDATION'],
                 'SEQ_LENGTH': tune.choice([150, 350, 700]),
                 'INPUT_SIZE': 8,
                 'N_CLASSES': 4,
@@ -52,17 +68,10 @@ def get_config(name, perc, mode, test):
                 'MODE': mode
             }
         if name == 'HHAR':
-            TRAIN_USERS = {
-                25: [0, 1],
-                50: [0, 1, 2],
-                75: [0, 1, 2, 4],
-                100: [0, 1, 2, 4, 7]
-            }
-            TEST_USERS = [3, 6]
             config = {
                 'DATASET': 'HHAR',
-                'TRAIN_USERS': TRAIN_USERS[perc],
-                'VALIDATION_USERS': [5, 8],
+                'TRAIN_USERS': d_users['TRAIN'][perc],
+                'VALIDATION_USERS': d_users['VALIDATION'],
                 'SEQ_LENGTH': tune.choice([100, 150, 200, 400]),
                 'N_CLASSES': 6,
                 'INPUT_SIZE': 6,
@@ -139,9 +148,6 @@ def main():
 
     ray.init()
     res = run_exp(config, exp_dir, gt, test)
-    
-    if test:
-        test(config, perc, mode)
 
 if __name__ == '__main__':
     main()
