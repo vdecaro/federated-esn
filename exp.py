@@ -7,7 +7,7 @@ from ray.tune.stopper import Stopper
 
 from fedavg.server import FedAvgServer
 
-def run_exp(config, exp_dir, gt):
+def run_exp(config, exp_dir, gt, test):
     if config['MODE'] == 'intrinsic_plasticity':
         stopper = TrialNoImprovementStopper(metric='eval_score', 
                                             mode='max', 
@@ -30,11 +30,11 @@ def run_exp(config, exp_dir, gt):
     config['GPU_SIZE'] = gpu_size
     return tune.run(
         FedAvgServer,
-        name=f"{config['DATASET']}_ms",
+        name=f"{config['DATASET']}_ms" if not test else f"{config['DATASET']}_test",
         stop=stopper,
         local_dir=exp_dir,
         config=config,
-        num_samples=30,
+        num_samples=30 if not test else 3,
         resources_per_trial=tune.PlacementGroupFactory([{"CPU": 1, "GPU": gpu_size} for _ in range(n_clients+1)]),
         keep_checkpoints_num=1,
         checkpoint_score_attr='eval_score',
