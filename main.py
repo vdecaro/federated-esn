@@ -144,8 +144,6 @@ def main():
     dataset, perc, gt, mode = args.dataset, args.percentage, args.gpu_trial, args.mode
     test = False
     config = get_config(dataset, perc, mode, test)
-    if test:
-        config['SEQ_LENGTH'] = 400 if dataset == 'HHAR' else 700
     exp_dir = f"experiments/{config['DATASET']}_{perc}_{mode}"
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
@@ -156,6 +154,7 @@ def main():
 
     test = True
     config = get_config(dataset, perc, mode, test)
+    config['SEQ_LENGTH'] = 400 if dataset == 'HHAR' else 700
     res = run_exp(config, exp_dir, gt, test)
     test_fn(dataset, perc, mode)
 
