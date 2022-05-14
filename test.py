@@ -16,8 +16,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument('dataset')
 parser.add_argument('--mode', '-m', type=str)
 parser.add_argument('--percentage', '-p', type=int, default=100)
-parser.add_argument('--gpu_trial', '-g', type=int, default=1)
-parser.add_argument('--test', '-t', default='ms')
 
 USERS = {
     'WESAD': {
