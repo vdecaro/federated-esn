@@ -40,52 +40,6 @@ USERS = {
     }
 }
 
-def main():
-    args = parser.parse_args()
-    dataset, perc, mode = args.dataset, args.percentage, args.mode
-
-    test_dir = f"experiments/{dataset}_{perc}_{mode}/{dataset}_test"
-    if dataset == 'WESAD':
-        from data.wesad import WESADDataset
-        data_constr = WESADDataset
-    if dataset == 'HHAR':
-        from data.hhar import HHARDataset
-        data_constr = HHARDataset
-
-    test_exp = tune.ExperimentAnalysis(test_dir, default_metric='eval_score', default_mode='max')
-    config = test_exp.get_best_config()
-    test_data = [data_constr(u) for u in USERS[dataset]['TEST']]
-    for d in test_data:
-        d.seq_length = config['SEQ_LENGTH']
-    test_loaders = [DataLoader(
-            d, 
-            batch_size=500,
-            collate_fn=seq_collate_fn
-    ) for d in test_data]
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    acc_fn = lambda Y, Y_pred: (torch.sum(Y == Y_pred)/Y.size(0)).item()
-
-    acc = {}
-    for i, trial in enumerate(test_exp.trials):
-        chk = test_exp.get_best_checkpoint(trial)
-        reservoir = torch.load(os.path.join(chk.local_path, 'reservoir.pkl')).to(device).eval()
-        readout = torch.load(os.path.join(chk.local_path, 'readout.pkl'))['W'].to(device).eval()
-        trial_acc, trial_n_samples = 0, 0
-        with torch.no_grad():
-            for loader in test_loaders:
-                for x, y in loader:
-                    h = reservoir(x.to('cuda' if torch.cuda.is_available() else 'cpu')).reshape((-1, reservoir.hidden_size))
-                    Y_pred = torch.argmax(F.linear(h, readout), -1).flatten().to('cpu')
-                    Y_true = torch.argmax(y, dim=-1).flatten()
-                    curr_acc = acc_fn(Y_true, Y_pred)
-                    curr_n_samples = Y_true.size(0)
-                    trial_acc += curr_acc * curr_n_samples
-                    trial_n_samples += curr_n_samples
-            acc[f'trial_{i}'] = trial_acc / trial_n_samples
-    with open(f"experiments/{dataset}_{perc}_{mode}/test_res.pkl", 'wb+') as f:
-        pickle.dump(acc, f)
-    print(acc, "saved.")
-
 
 if __name__ == '__main__':
     main()
