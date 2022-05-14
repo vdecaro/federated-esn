@@ -48,13 +48,13 @@ def get_config(name, perc, mode, test):
                 'DATASET': 'WESAD',
                 'TRAIN_USERS': d_users['TRAIN'][perc],
                 'VALIDATION_USERS': d_users['VALIDATION'],
-                'SEQ_LENGTH': tune.choice([150, 350, 700]),
+                'SEQ_LENGTH': 700,
                 'INPUT_SIZE': 8,
                 'N_CLASSES': 4,
 
-                'HIDDEN_SIZE': tune.choice([200, 250, 300]),
+                'HIDDEN_SIZE': tune.choice([200, 300, 400]),
                 'RHO': tune.uniform(0.3, 0.99),
-                'LEAKAGE': tune.choice([0.1, 0.3, 0.5]),
+                'LEAKAGE': tune.choice([0.1, 0.3, 0.5, 0.7, 0.8]),
                 'INPUT_SCALING': tune.uniform(0.5, 1),
                 'MU': 0,
                 'SIGMA': tune.uniform(0.005, 0.15),
@@ -70,7 +70,7 @@ def get_config(name, perc, mode, test):
                 'DATASET': 'HHAR',
                 'TRAIN_USERS': d_users['TRAIN'][perc],
                 'VALIDATION_USERS': d_users['VALIDATION'],
-                'SEQ_LENGTH': tune.choice([100, 150, 200, 400]),
+                'SEQ_LENGTH': 400,
                 'N_CLASSES': 6,
                 'INPUT_SIZE': 6,
 
@@ -154,7 +154,6 @@ def main():
 
     test = True
     config = get_config(dataset, perc, mode, test)
-    config['SEQ_LENGTH'] = 400 if dataset == 'HHAR' else 700
     res = run_exp(config, exp_dir, gt, test)
     test_fn(dataset, perc, mode)
 
