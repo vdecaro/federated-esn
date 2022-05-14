@@ -5,6 +5,7 @@ __pycache__/
 data/raw
 data/processed
 experiments/
+experiments_old/
 # C extensions
 *.so
 
