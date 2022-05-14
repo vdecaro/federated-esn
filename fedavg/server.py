@@ -20,7 +20,7 @@ class FedAvgServer(tune.Trainable):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print(f"Server running on {self.device}")
         self.n_clients = len(config['TRAIN_USERS'])
-        self.clients = [FedAvgClient.options(num_cpus=1, num_gpus=config['GPU_SIZE']).remote(i) for i in range(self.n_clients)]
+        self.clients = [FedAvgClient.options(num_cpus=1, num_gpus=config['GPU_SIZE']).remote(config['TRAIN_USERS'][i]) for i in range(self.n_clients)]
         self.reservoir, self.res_path = None, None
         self.readout, self.read_path = None, None
         self.mode = None
