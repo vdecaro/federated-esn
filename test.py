@@ -65,19 +65,20 @@ def main():
     acc = {}
     for i, trial in enumerate(test_exp.trials):
         chk = test_exp.get_best_checkpoint(trial)
-        reservoir = torch.load(os.path.join(chk.local_path, 'reservoir.pkl')).to(device)
-        readout = torch.load(os.path.join(chk.local_path, 'readout.pkl'))['W'].to(device)
+        reservoir = torch.load(os.path.join(chk.local_path, 'reservoir.pkl')).to(device).eval()
+        readout = torch.load(os.path.join(chk.local_path, 'readout.pkl'))['W'].to(device).eval()
         trial_acc, trial_n_samples = 0, 0
-        for loader in test_loaders:
-            for x, y in loader:
-                h = reservoir(x.to('cuda' if torch.cuda.is_available() else 'cpu')).reshape((-1, reservoir.hidden_size))
-                Y_pred = torch.argmax(F.linear(h, readout), -1).flatten().to('cpu')
-                Y_true = torch.argmax(y, dim=-1).flatten()
-                curr_acc = acc_fn(Y_true, Y_pred)
-                curr_n_samples = Y_true.size(0)
-                trial_acc += curr_acc * curr_n_samples
-                trial_n_samples += curr_n_samples
-        acc[f'trial_{i}'] = trial_acc / trial_n_samples
+        with torch.no_grad():
+            for loader in test_loaders:
+                for x, y in loader:
+                    h = reservoir(x.to('cuda' if torch.cuda.is_available() else 'cpu')).reshape((-1, reservoir.hidden_size))
+                    Y_pred = torch.argmax(F.linear(h, readout), -1).flatten().to('cpu')
+                    Y_true = torch.argmax(y, dim=-1).flatten()
+                    curr_acc = acc_fn(Y_true, Y_pred)
+                    curr_n_samples = Y_true.size(0)
+                    trial_acc += curr_acc * curr_n_samples
+                    trial_n_samples += curr_n_samples
+            acc[f'trial_{i}'] = trial_acc / trial_n_samples
     with open(f"experiments/{dataset}_{perc}_{mode}/test_res.pkl", 'wb+') as f:
         pickle.dump(acc, f)
     print(acc, "saved.")
