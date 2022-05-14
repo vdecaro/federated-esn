@@ -92,6 +92,7 @@ def get_config(name, perc, mode, test):
     else:
         tune_exp = tune.ExperimentAnalysis(f"experiments/{name}_{perc}_{mode}/{name}_ms", default_metric='eval_score', default_mode='max')
         config = tune_exp.get_best_config()
+        config['MODE'] = mode
     return config
 
 
