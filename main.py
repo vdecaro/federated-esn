@@ -4,7 +4,6 @@ import os
 
 import ray
 from ray import tune
-from yaml import parse
 from exp import run_exp
 from data.seq_loader import seq_collate_fn
 
@@ -17,7 +16,6 @@ parser.add_argument('dataset')
 parser.add_argument('--mode', '-m', type=str)
 parser.add_argument('--percentage', '-p', type=int, default=100)
 parser.add_argument('--gpu_trial', '-g', type=int, default=1)
-parser.add_argument('--test', '-t', action='store_true')
 
 USERS = {
     'WESAD': {
@@ -143,7 +141,8 @@ def test_fn(dataset, perc, mode):
 
 def main():
     args = parser.parse_args()
-    dataset, perc, gt, mode, test = args.dataset, args.percentage, args.gpu_trial, args.mode, args.test
+    dataset, perc, gt, mode = args.dataset, args.percentage, args.gpu_trial, args.mode
+    test = False
     config = get_config(dataset, perc, mode, test)
     if test:
         config['SEQ_LENGTH'] = 400 if dataset == 'HHAR' else 700
@@ -152,10 +151,13 @@ def main():
         os.makedirs(exp_dir)
 
     ray.init()
+    
     res = run_exp(config, exp_dir, gt, test)
 
-    if test:
-        test_fn(dataset, perc, mode)
+    test = True
+    config = get_config(dataset, perc, mode, test)
+    res = run_exp(config, exp_dir, gt, test)
+    test_fn(dataset, perc, mode)
 
 if __name__ == '__main__':
     main()
