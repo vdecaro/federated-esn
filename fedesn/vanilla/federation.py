@@ -21,7 +21,6 @@ class VanillaESNFederation(ClientServerFederation):
         is_tune: bool = False,
         bundle_offset: int = 0,
     ) -> None:
-
         super().__init__(
             server_template=FedESNServer,
             client_template=VanillaFedESNClient,
@@ -43,6 +42,8 @@ class VanillaESNFederation(ClientServerFederation):
         self,
         reservoir: Union[Reservoir, Dict],
         l2: Optional[List[float]] = None,
+        perc_rec: Optional[float] = 1.0,
+        alpha: Optional[float] = 1.0,
         prev_A: Optional[torch.Tensor] = None,
         prev_B: Optional[torch.Tensor] = None,
     ) -> None:
@@ -54,7 +55,7 @@ class VanillaESNFederation(ClientServerFederation):
                 "prev_A": prev_A,
                 "prev_B": prev_B,
             },
-            client_args={"method": "ridge"},
+            client_args={"method": "ridge", "perc_rec": perc_rec, "alpha": alpha},
         )
 
     def ip_train(
@@ -65,7 +66,6 @@ class VanillaESNFederation(ClientServerFederation):
         eta: float,
         epochs: int,
     ) -> None:
-
         return super().train(
             server_args={
                 "method": "ip",
@@ -91,7 +91,6 @@ class VanillaESNFederation(ClientServerFederation):
         prev_A: Optional[torch.Tensor] = None,
         prev_B: Optional[torch.Tensor] = None,
     ) -> None:
-
         return super().train(
             server_args={
                 "method": "both",
@@ -115,7 +114,6 @@ class VanillaESNFederation(ClientServerFederation):
         model: Dict,
         device: Optional[str] = None,
     ) -> float:
-
         return super().test(phase, metric="accuracy", model=model, device=device)
 
     def test_likelihood(
@@ -126,7 +124,6 @@ class VanillaESNFederation(ClientServerFederation):
         sigma: float,
         device: Optional[str] = None,
     ) -> float:
-
         return super().test(
             phase, metric="likelihood", model=model, mu=mu, sigma=sigma, device=device
         )
