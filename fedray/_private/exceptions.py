@@ -1,0 +1,2 @@
+class EndProcessException(Exception):
+    pass
