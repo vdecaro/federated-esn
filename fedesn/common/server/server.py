@@ -48,23 +48,45 @@ class FedESNServer(FedRayNode):
         prev_B: Optional[torch.Tensor] = None,
         with_versioning: bool = True,
     ):
-
         ridge_aggregator = SumAggregator()
         self.send("reservoir", {"model": reservoir})
         ridge_aggregator.setup(self.neighbors)
         while not ridge_aggregator.ready:
             ridge_aggregator(self.receive())
         ab_dict = ridge_aggregator.compute()
-        A = ab_dict["A"] + prev_A if prev_A is not None else ab_dict["A"]
-        B = ab_dict["B"] + prev_B if prev_B is not None else ab_dict["B"]
+        full_A = ab_dict["full_A"] + prev_A if prev_A is not None else ab_dict["full_A"]
+        full_B = ab_dict["full_B"] + prev_B if prev_B is not None else ab_dict["full_B"]
+
+        imp_A = ab_dict["imp_A"] + prev_A if prev_A is not None else ab_dict["imp_A"]
+        imp_B = ab_dict["imp_B"] + prev_B if prev_B is not None else ab_dict["imp_B"]
+
+        rand_A = ab_dict["rand_A"] + prev_A if prev_A is not None else ab_dict["rand_A"]
+        rand_B = ab_dict["rand_B"] + prev_B if prev_B is not None else ab_dict["rand_B"]
+
         if l2 is None or isinstance(l2, float):
-            readout = solve_ab_decomposition(A, B, l2=l2).cpu()
+            full_readout = solve_ab_decomposition(full_A, full_B, l2=l2).cpu()
+            imp_readout = solve_ab_decomposition(imp_A, imp_B, l2=l2).cpu()
+            rand_readout = solve_ab_decomposition(rand_A, rand_B, l2=l2).cpu()
         else:
-            readout = [solve_ab_decomposition(A, B, curr_l2).cpu() for curr_l2 in l2]
+            full_readout = [
+                solve_ab_decomposition(full_A, full_B, curr_l2).cpu() for curr_l2 in l2
+            ]
+            imp_readout = [
+                solve_ab_decomposition(imp_A, imp_B, curr_l2).cpu() for curr_l2 in l2
+            ]
+            rand_readout = [
+                solve_ab_decomposition(rand_A, rand_B, curr_l2).cpu() for curr_l2 in l2
+            ]
         if with_versioning:
             self.update_version(
                 reservoir=reservoir.cpu(),
-                readout=readout,
-                A=ab_dict["A"].cpu(),
-                B=ab_dict["B"].cpu(),
+                full_readout=full_readout,
+                imp_readout=imp_readout,
+                rand_readout=rand_readout,
+                full_A=ab_dict["full_A"].cpu(),
+                full_B=ab_dict["full_B"].cpu(),
+                imp_A=ab_dict["imp_A"].cpu(),
+                imp_B=ab_dict["imp_B"].cpu(),
+                rand_A=ab_dict["rand_A"].cpu(),
+                rand_B=ab_dict["rand_B"].cpu(),
             )

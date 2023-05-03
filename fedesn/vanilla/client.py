@@ -5,6 +5,7 @@ from torch_esn.model.reservoir import Reservoir
 from typing import Dict, Literal, Optional, Tuple
 
 from torch_esn.wrapper.vanilla import VanillaESNWrapper
+from torch_esn.optimization.ridge_regression import compress_ridge_matrices
 
 
 @fedray.remote
@@ -19,9 +20,9 @@ class VanillaFedESNClient(FedRayNode):
                     kwargs["mu"], kwargs["sigma"], kwargs["eta"], kwargs["epochs"]
                 )
                 if method == "both":
-                    self.ridge_round(kwargs["perc_rec"], kwargs["alpha"])
+                    self.ridge_round(kwargs["perc_rec"])
         elif method == "ridge":
-            self.ridge_round(kwargs["perc_rec"], kwargs["alpha"])
+            self.ridge_round(kwargs["perc_rec"])
 
         else:
             raise ValueError(f"Unknown training method: {method}")
@@ -42,12 +43,23 @@ class VanillaFedESNClient(FedRayNode):
             },
         )
 
-    def ridge_round(self, perc_rec: float, alpha: float):
+    def ridge_round(self, perc_rec: float):
         reservoir: Reservoir = self.receive().body["model"]
-        A, B = self.wrapper.ridge_step(
-            reservoir, l2=None, perc_rec=perc_rec, alpha=alpha, with_readout=False
+        A, B = self.wrapper.ridge_step(reservoir, l2=None, with_readout=False)
+        rand = compress_ridge_matrices(A, B, perc_rec, alpha=0.0)
+        imp = compress_ridge_matrices(A, B, perc_rec, alpha=1.0)
+
+        self.send(
+            "ridge_matrices",
+            {
+                "full_A": A.cpu(),
+                "full_B": B.cpu(),
+                "rand_A": rand[0].cpu(),
+                "rand_B": rand[1].cpu(),
+                "imp_A": imp[0].cpu(),
+                "imp_B": imp[1].cpu(),
+            },
         )
-        self.send("ridge_matrices", {"A": A, "B": B})
 
     def test(
         self,

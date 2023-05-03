@@ -43,7 +43,6 @@ class VanillaESNFederation(ClientServerFederation):
         reservoir: Union[Reservoir, Dict],
         l2: Optional[List[float]] = None,
         perc_rec: Optional[float] = 1.0,
-        alpha: Optional[float] = 1.0,
         prev_A: Optional[torch.Tensor] = None,
         prev_B: Optional[torch.Tensor] = None,
     ) -> None:
@@ -55,7 +54,7 @@ class VanillaESNFederation(ClientServerFederation):
                 "prev_A": prev_A,
                 "prev_B": prev_B,
             },
-            client_args={"method": "ridge", "perc_rec": perc_rec, "alpha": alpha},
+            client_args={"method": "ridge", "perc_rec": perc_rec},
         )
 
     def ip_train(
