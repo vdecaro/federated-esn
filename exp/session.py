@@ -23,6 +23,7 @@ def run(
             "imp_test_score": "ITS-Acc",
             "rand_train_score": "RTR-Acc",
             "rand_test_score": "RTS-Acc",
+            "perc_chosen": "Perc",
         },
         infer_limit=3,
     )

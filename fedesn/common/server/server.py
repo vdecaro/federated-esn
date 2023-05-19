@@ -62,6 +62,7 @@ class FedESNServer(FedRayNode):
 
         rand_A = ab_dict["rand_A"] + prev_A if prev_A is not None else ab_dict["rand_A"]
         rand_B = ab_dict["rand_B"] + prev_B if prev_B is not None else ab_dict["rand_B"]
+        perc_chosen = ab_dict["perc_chosen"] / len(self.neighbors)
 
         if l2 is None or isinstance(l2, float):
             full_readout = solve_ab_decomposition(full_A, full_B, l2=l2).cpu()
@@ -83,10 +84,5 @@ class FedESNServer(FedRayNode):
                 full_readout=full_readout,
                 imp_readout=imp_readout,
                 rand_readout=rand_readout,
-                full_A=ab_dict["full_A"].cpu(),
-                full_B=ab_dict["full_B"].cpu(),
-                imp_A=ab_dict["imp_A"].cpu(),
-                imp_B=ab_dict["imp_B"].cpu(),
-                rand_A=ab_dict["rand_A"].cpu(),
-                rand_B=ab_dict["rand_B"].cpu(),
+                perc_chosen=perc_chosen.item(),
             )

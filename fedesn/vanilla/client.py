@@ -46,18 +46,26 @@ class VanillaFedESNClient(FedRayNode):
     def ridge_round(self, perc_rec: float):
         reservoir: Reservoir = self.receive().body["model"]
         A, B = self.wrapper.ridge_step(reservoir, l2=None, with_readout=False)
-        rand = compress_ridge_matrices(A, B, perc_rec, alpha=0.0)
-        imp = compress_ridge_matrices(A, B, perc_rec, alpha=1.0)
+        imp_A, imp_B, imp_m_A, imp_m_B = compress_ridge_matrices(
+            A, B, perc_rec, alpha=1.0
+        )
+        n_chosen = imp_m_A[0].sum()
+        n = imp_m_A[0].shape[0]
+
+        rand_A, rand_B, rnd_m_A, rnd_m_B = compress_ridge_matrices(
+            A, B, n_chosen / n, alpha=0.0
+        )
 
         self.send(
             "ridge_matrices",
             {
                 "full_A": A.cpu(),
                 "full_B": B.cpu(),
-                "rand_A": rand[0].cpu(),
-                "rand_B": rand[1].cpu(),
-                "imp_A": imp[0].cpu(),
-                "imp_B": imp[1].cpu(),
+                "rand_A": rand_A.cpu(),
+                "rand_B": rand_B.cpu(),
+                "imp_A": imp_A.cpu(),
+                "imp_B": imp_B.cpu(),
+                "perc_chosen": n_chosen / n,
             },
         )
 

@@ -41,6 +41,8 @@ class VanillaFedESNTrainable(tune.Trainable):
             to_return[k + "_test_score"] = test_score
             to_return[k + "_eval_score"] = eval_score
 
+        to_return["perc_chosen"] = model["perc_chosen"]
+
         self.model = model
         return to_return
 
