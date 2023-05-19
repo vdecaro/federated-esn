@@ -133,3 +133,5 @@ dmypy.json
 
 .vscode
 img
+plots
+torch_esn
